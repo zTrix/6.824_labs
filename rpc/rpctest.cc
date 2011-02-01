@@ -193,7 +193,7 @@ simple_tests(rpcc *c)
 	// to marshall the RPC call packet, and how to unmarshall
 	// the reply packet.
 	std::string rep;
-	int intret = c->call(22, "hello", " goodbye", rep);
+	int intret = c->call(22, (std::string)"hello", (std::string)" goodbye", rep);
 	assert(intret == 0); // this is what handle_22 returns
 	assert(rep == "hello goodbye");
 	printf("   -- string concat RPC .. ok\n");
@@ -205,7 +205,7 @@ simple_tests(rpcc *c)
 	printf("   -- small request, big reply .. ok\n");
 
 	// too few arguments
-	intret = c->call(22, "just one", rep);
+	intret = c->call(22, (std::string)"just one", rep);
 	assert(intret < 0);
 	printf("   -- too few arguments .. failed ok\n");
 
@@ -216,7 +216,7 @@ simple_tests(rpcc *c)
 
 	// wrong return value size
 	int wrongrep;
-	intret = c->call(23, "hello", " goodbye", wrongrep);
+	intret = c->call(23, (std::string)"hello", (std::string)" goodbye", wrongrep);
 	assert(intret < 0);
 	printf("   -- wrong ret value size .. failed ok\n");
 
@@ -230,14 +230,14 @@ simple_tests(rpcc *c)
 	{
 		std::string arg(1000, 'x');
 		std::string rep;
-		c->call(22, arg, "x", rep, rpcc::to(3000));
+		c->call(22, arg, (std::string)"x", rep, rpcc::to(3000));
 		assert(rep.size() == 1001);
 		printf("   -- no suprious timeout .. ok\n");
 	}
 
 	// huge RPC
 	std::string big(1000000, 'x');
-	intret = c->call(22, big, "z", rep);
+	intret = c->call(22, big, (std::string)"z", rep);
 	assert(rep.size() == 1000001);
 	printf("   -- huge 1M rpc request .. ok\n");
 
@@ -329,7 +329,7 @@ failure_test()
 	startserver();
 
 	std::string rep;
-	int intret = client->call(22, "hello", " goodbye", rep);
+	int intret = client->call(22, (std::string)"hello", (std::string)" goodbye", rep);
 	assert(intret == rpc_const::oldsrv_failure);
 	printf("   -- call recovered server with old client .. failed ok\n");
 
@@ -339,7 +339,7 @@ failure_test()
 	assert (client->bind() >= 0);
 	assert (client->bind() < 0);
 
-	intret = client->call(22, "hello", " goodbye", rep);
+	intret = client->call(22, (std::string)"hello", (std::string)" goodbye", rep);
 	assert(intret == 0);
 	assert(rep == "hello goodbye");
 
