@@ -4,11 +4,11 @@
 // method_thread(): start a thread that runs an object method.
 // returns a pthread_t on success, and zero on error.
 
-#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "lang/verify.h"
 
 static pthread_t
 method_thread_parent(void *(*fn)(void *), void *arg, bool detach)
@@ -29,7 +29,7 @@ method_thread_parent(void *(*fn)(void *), void *arg, bool detach)
 		// don't keep thread state around after exit, to avoid
 		// running out of threads. set detach==false if you plan
 		// to pthread_join.
-		assert(pthread_detach(th) == 0);
+		VERIFY(pthread_detach(th) == 0);
 	}
 
 	return th;
@@ -41,8 +41,8 @@ method_thread_child()
 	// defer pthread_cancel() by default. check explicitly by
 	// enabling then pthread_testcancel().
 	int oldstate, oldtype;
-	assert(pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate) == 0);
-	assert(pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldtype) == 0);
+	VERIFY(pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate) == 0);
+	VERIFY(pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldtype) == 0);
 }
 
 template <class C> pthread_t 

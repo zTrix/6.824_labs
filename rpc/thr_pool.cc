@@ -2,6 +2,7 @@
 #include "thr_pool.h"
 #include <stdlib.h>
 #include <errno.h>
+#include "lang/verify.h"
 
 static void *
 do_worker(void *arg)
@@ -27,7 +28,7 @@ ThrPool::ThrPool(int sz, bool blocking)
 
 	for (int i = 0; i < sz; i++) {
 		pthread_t t;
-		assert(pthread_create(&t, &attr_, do_worker, (void *)this) ==0);
+		VERIFY(pthread_create(&t, &attr_, do_worker, (void *)this) ==0);
 		th_.push_back(t);
 	}
 }
@@ -43,10 +44,10 @@ ThrPool::~ThrPool()
 	}
 
 	for (int i = 0; i < nthreads_; i++) {
-		assert(pthread_join(th_[i], NULL)==0);
+		VERIFY(pthread_join(th_[i], NULL)==0);
 	}
 
-	assert(pthread_attr_destroy(&attr_)==0);
+	VERIFY(pthread_attr_destroy(&attr_)==0);
 }
 
 bool 

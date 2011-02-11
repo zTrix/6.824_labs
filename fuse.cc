@@ -14,8 +14,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <assert.h>
 #include <arpa/inet.h>
+#include "lang/verify.h"
 #include "yfs_client.h"
 
 int myid;

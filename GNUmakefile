@@ -34,7 +34,7 @@ CXX = g++
 
 lab:  lab$(LAB)
 lab1: rpc/rpctest lock_server lock_tester lock_demo
-lab2: yfs_client extent_server
+lab2: rpc/rpctest lock_server lock_tester lock_demo yfs_client extent_server
 lab3: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c
 lab4: yfs_client extent_server lock_server lock_tester test-lab-3-b\
 	 test-lab-3-c
@@ -44,7 +44,8 @@ lab7: lock_tester lock_server rsm_tester
 
 hfiles1=rpc/fifo.h rpc/connection.h rpc/rpc.h rpc/marshall.h rpc/method_thread.h\
 	rpc/thr_pool.h rpc/pollmgr.h rpc/jsl_log.h rpc/slock.h rpc/rpctest.cc\
-	lock_protocol.h lock_server.h lock_client.h gettime.h gettime.cc
+	lock_protocol.h lock_server.h lock_client.h gettime.h gettime.cc lang/verify.h \
+        lang/algorithm.h
 hfiles2=yfs_client.h extent_client.h extent_protocol.h extent_server.h
 hfiles3=lock_client_cache.h lock_server_cache.h
 hfiles4=log.h rsm.h rsm_protocol.h config.h paxos.h paxos_protocol.h rsm_state_transfer.h handle.h rsmtest_client.h tprintf.h

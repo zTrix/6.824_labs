@@ -6,7 +6,7 @@
 #include "slock.h"
 #include "jsl_log.h"
 #include "method_thread.h"
-
+#include "lang/verify.h"
 #include "pollmgr.h"
 
 PollMgr *PollMgr::instance = NULL;
@@ -31,26 +31,26 @@ PollMgr::PollMgr() : pending_change_(false)
 	aio_ = new SelectAIO();
 	//aio_ = new EPollAIO();
 
-	assert(pthread_mutex_init(&m_, NULL) == 0);
-	assert(pthread_cond_init(&changedone_c_, NULL) == 0);
-	assert((th_ = method_thread(this, false, &PollMgr::wait_loop)) != 0);
+	VERIFY(pthread_mutex_init(&m_, NULL) == 0);
+	VERIFY(pthread_cond_init(&changedone_c_, NULL) == 0);
+	VERIFY((th_ = method_thread(this, false, &PollMgr::wait_loop)) != 0);
 }
 
 PollMgr::~PollMgr()
 {
 	//never kill me!!!
-	assert(0);
+	VERIFY(0);
 }
 
 void
 PollMgr::add_callback(int fd, poll_flag flag, aio_callback *ch)
 {
-	assert(fd < MAX_POLL_FDS);
+	VERIFY(fd < MAX_POLL_FDS);
 
 	ScopedLock ml(&m_);
 	aio_->watch_fd(fd, flag);
 
-	assert(!callbacks_[fd] || callbacks_[fd]==ch);
+	VERIFY(!callbacks_[fd] || callbacks_[fd]==ch);
 	callbacks_[fd] = ch;
 }
 
@@ -63,7 +63,7 @@ PollMgr::block_remove_fd(int fd)
 	ScopedLock ml(&m_);
 	aio_->unwatch_fd(fd, CB_RDWR);
 	pending_change_ = true;
-	assert(pthread_cond_wait(&changedone_c_, &m_)==0);
+	VERIFY(pthread_cond_wait(&changedone_c_, &m_)==0);
 	callbacks_[fd] = NULL;
 }
 
@@ -98,7 +98,7 @@ PollMgr::wait_loop()
 			ScopedLock ml(&m_);
 			if (pending_change_) {
 				pending_change_ = false;
-				assert(pthread_cond_broadcast(&changedone_c_)==0);
+				VERIFY(pthread_cond_broadcast(&changedone_c_)==0);
 			}
 		}
 		readable.clear();
@@ -130,7 +130,7 @@ SelectAIO::SelectAIO() : highfds_(0)
 	FD_ZERO(&rfds_);
 	FD_ZERO(&wfds_);
 
-	assert(pipe(pipefd_) == 0);
+	VERIFY(pipe(pipefd_) == 0);
 	FD_SET(pipefd_[0], &rfds_);
 	highfds_ = pipefd_[0];
 
@@ -138,12 +138,12 @@ SelectAIO::SelectAIO() : highfds_(0)
 	flags |= O_NONBLOCK;
 	fcntl(pipefd_[0], F_SETFL, flags);
 
-	assert(pthread_mutex_init(&m_, NULL) == 0);
+	VERIFY(pthread_mutex_init(&m_, NULL) == 0);
 }
 
 SelectAIO::~SelectAIO()
 {
-	assert(pthread_mutex_destroy(&m_) == 0);
+	VERIFY(pthread_mutex_destroy(&m_) == 0);
 }
 
 void
@@ -163,7 +163,7 @@ SelectAIO::watch_fd(int fd, poll_flag flag)
 	}
 
 	char tmp = 1;
-	assert(write(pipefd_[1], &tmp, sizeof(tmp))==1);
+	VERIFY(write(pipefd_[1], &tmp, sizeof(tmp))==1);
 }
 
 bool
@@ -191,7 +191,7 @@ SelectAIO::unwatch_fd(int fd, poll_flag flag)
 		FD_CLR(fd, &wfds_);
 		FD_CLR(fd, &rfds_);
 	}else{
-		assert(0);
+		VERIFY(0);
 	}
 
 	if (!FD_ISSET(fd,&rfds_) && !FD_ISSET(fd,&wfds_)) {
@@ -209,7 +209,7 @@ SelectAIO::unwatch_fd(int fd, poll_flag flag)
 	}
 	if (flag == CB_RDWR) {
 		char tmp = 1;
-		assert(write(pipefd_[1], &tmp, sizeof(tmp))==1);
+		VERIFY(write(pipefd_[1], &tmp, sizeof(tmp))==1);
 	}
 	return (!FD_ISSET(fd, &rfds_) && !FD_ISSET(fd, &wfds_));
 }
@@ -236,15 +236,15 @@ SelectAIO::wait_ready(std::vector<int> *readable, std::vector<int> *writable)
 		} else {
 			perror("select:");
 			jsl_log(JSL_DBG_OFF, "PollMgr::select_loop failure errno %d\n",errno);
-			assert(0);
+			VERIFY(0);
 		}
 	}
 
 	for (int fd = 0; fd <= high; fd++) {
 		if (fd == pipefd_[0] && FD_ISSET(fd, &trfds)) {
 			char tmp;
-			assert (read(pipefd_[0],&tmp,sizeof(tmp))==1);
-			assert(tmp==1);
+			VERIFY (read(pipefd_[0],&tmp,sizeof(tmp))==1);
+			VERIFY(tmp==1);
 		}else {
 			if (FD_ISSET(fd, &twfds)) {
 				writable->push_back(fd);
@@ -261,7 +261,7 @@ SelectAIO::wait_ready(std::vector<int> *readable, std::vector<int> *writable)
 EPollAIO::EPollAIO()
 {
 	pollfd_ = epoll_create(MAX_POLL_FDS);
-	assert(pollfd_ >= 0);
+	VERIFY(pollfd_ >= 0);
 	bzero(fdstatus_, sizeof(int)*MAX_POLL_FDS);
 }
 
@@ -287,7 +287,7 @@ int poll_flag_to_event(poll_flag flag)
 void
 EPollAIO::watch_fd(int fd, poll_flag flag)
 {
-	assert(fd < MAX_POLL_FDS);
+	VERIFY(fd < MAX_POLL_FDS);
 
 	struct epoll_event ev;
 	int op = fdstatus_[fd]? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
@@ -304,16 +304,16 @@ EPollAIO::watch_fd(int fd, poll_flag flag)
 	}
 
 	if (flag == CB_RDWR) {
-		assert(ev.events == (uint32_t)(EPOLLET | EPOLLIN | EPOLLOUT));
+		VERIFY(ev.events == (uint32_t)(EPOLLET | EPOLLIN | EPOLLOUT));
 	}
 
-	assert(epoll_ctl(pollfd_, op, fd, &ev) == 0);
+	VERIFY(epoll_ctl(pollfd_, op, fd, &ev) == 0);
 }
 
 bool 
 EPollAIO::unwatch_fd(int fd, poll_flag flag)
 {
-	assert(fd < MAX_POLL_FDS);
+	VERIFY(fd < MAX_POLL_FDS);
 	fdstatus_[fd] &= ~(int)flag;
 
 	struct epoll_event ev;
@@ -330,16 +330,16 @@ EPollAIO::unwatch_fd(int fd, poll_flag flag)
 	}
 
 	if (flag == CB_RDWR) {
-		assert(op == EPOLL_CTL_DEL);
+		VERIFY(op == EPOLL_CTL_DEL);
 	}
-	assert(epoll_ctl(pollfd_, op, fd, &ev) == 0);
+	VERIFY(epoll_ctl(pollfd_, op, fd, &ev) == 0);
 	return (op == EPOLL_CTL_DEL);
 }
 
 bool
 EPollAIO::is_watched(int fd, poll_flag flag)
 {
-	assert(fd < MAX_POLL_FDS);
+	VERIFY(fd < MAX_POLL_FDS);
 	return ((fdstatus_[fd] & CB_MASK) == flag);
 }
 

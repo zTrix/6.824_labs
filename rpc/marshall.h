@@ -6,11 +6,10 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define max(a,b) ((a>b)?a:b)
+#include "lang/verify.h"
+#include "lang/algorithm.h"
 
 struct req_header {
 	req_header(int x=0, int p=0, int c = 0, int s = 0, int xi = 0):
@@ -36,9 +35,9 @@ enum {
 	DEFAULT_RPC_SZ = 1024,
 #if RPC_CHECKSUMMING
 	//size of rpc_header includes a 4-byte int to be filled by tcpchan and uint64_t checksum
-	RPC_HEADER_SZ = max(sizeof(req_header), sizeof(reply_header)) + sizeof(rpc_sz_t) + sizeof(rpc_checksum_t)
+	RPC_HEADER_SZ = static_max<sizeof(req_header), sizeof(reply_header)>::value + sizeof(rpc_sz_t) + sizeof(rpc_checksum_t)
 #else
-		RPC_HEADER_SZ = max(sizeof(req_header), sizeof(reply_header)) + sizeof(rpc_sz_t)
+		RPC_HEADER_SZ = static_max<sizeof(req_header), sizeof(reply_header)>::value + sizeof(rpc_sz_t)
 #endif
 };
 
@@ -51,7 +50,7 @@ class marshall {
 	public:
 		marshall() {
 			_buf = (char *) malloc(sizeof(char)*DEFAULT_RPC_SZ);
-			assert(_buf);
+			VERIFY(_buf);
 			_capa = DEFAULT_RPC_SZ;
 			_ind = RPC_HEADER_SZ;
 		}
@@ -149,7 +148,7 @@ class unmarshall {
 		void take_content(const std::string &s) {
 			_sz = s.size()+RPC_HEADER_SZ;
 			_buf = (char *)realloc(_buf,_sz);
-			assert(_buf);
+			VERIFY(_buf);
 			_ind = RPC_HEADER_SZ;
 			memcpy(_buf+_ind, s.data(), s.size());
 			_ok = true;

@@ -69,7 +69,16 @@ class rpcc : public chanmgr {
 
 		std::map<int, caller *> calls_;
 		std::list<unsigned int> xid_rep_window_;
-
+                
+                struct request {
+                    request() { clear(); }
+                    void clear() { buf.clear(); xid = -1; }
+                    bool isvalid() { return xid != -1; }
+                    std::string buf;
+                    int xid;
+                };
+                struct request dup_req_;
+                int xid_rep_done_;
 	public:
 
 		rpcc(sockaddr_in d, bool retrans=true);

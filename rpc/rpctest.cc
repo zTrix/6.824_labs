@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include "jsl_log.h"
 #include "gettime.h"
+#include "lang/verify.h"
 
 #define NUM_CL 2
 
@@ -82,7 +83,7 @@ testmarshall()
 	marshall m;
 	req_header rh(1,2,3,4,5);
 	m.pack_req_header(rh);
-	assert(m.size()==RPC_HEADER_SZ);
+	VERIFY(m.size()==RPC_HEADER_SZ);
 	int i = 12345;
 	unsigned long long l = 1223344455L;
 	std::string s = std::string("hallo....");
@@ -93,20 +94,20 @@ testmarshall()
 	char *b;
 	int sz;
 	m.take_buf(&b,&sz);
-	assert(sz == (int)(RPC_HEADER_SZ+sizeof(i)+sizeof(l)+s.size()+sizeof(int)));
+	VERIFY(sz == (int)(RPC_HEADER_SZ+sizeof(i)+sizeof(l)+s.size()+sizeof(int)));
 
 	unmarshall un(b,sz);
 	req_header rh1;
 	un.unpack_req_header(&rh1);
-	assert(memcmp(&rh,&rh1,sizeof(rh))==0);
+	VERIFY(memcmp(&rh,&rh1,sizeof(rh))==0);
 	int i1;
 	unsigned long long l1;
 	std::string s1;
 	un >> i1;
 	un >> l1;
 	un >> s1;
-	assert(un.okdone());
-	assert(i1==i && l1==l && s1==s);
+	VERIFY(un.okdone());
+	VERIFY(i1==i && l1==l && s1==s);
 }
 
 void *
@@ -120,11 +121,11 @@ client1(void *xx)
 		int arg = (random() % 2000);
 		std::string rep;
 		int ret = clients[which_cl]->call(25, arg, rep);
-		assert(ret == 0);
+		VERIFY(ret == 0);
 		if ((int)rep.size()!=arg) {
 			printf("repsize wrong %d!=%d\n", (int)rep.size(), arg);
 		}
-		assert((int)rep.size() == arg);
+		VERIFY((int)rep.size() == arg);
 	}
 
 	// test rpc replies coming back not in the order of
@@ -142,8 +143,8 @@ client1(void *xx)
 		int diff = diff_timespec(end, start);
 		if (ret != 0)
 			printf("%d ms have elapsed!!!\n", diff);
-		assert(ret == 0);
-		assert(rep == (which ? arg+1 : arg+2));
+		VERIFY(ret == 0);
+		VERIFY(rep == (which ? arg+1 : arg+2));
 	}
 
 	return 0;
@@ -165,7 +166,7 @@ client2(void *xx)
 			printf("ask for %d reply got %d ret %d\n",
                                arg, (int)rep.size(), ret);
 		}
-		assert((int)rep.size() == arg);
+		VERIFY((int)rep.size() == arg);
 	}
 	return 0;
 }
@@ -178,7 +179,7 @@ client3(void *xx)
 	for(int i = 0; i < 4; i++){
 		int rep;
 		int ret = c->call(24, i, rep, rpcc::to(3000));
-		assert(ret == rpc_const::timeout_failure || rep == i+2);
+		VERIFY(ret == rpc_const::timeout_failure || rep == i+2);
 	}
 	return 0;
 }
@@ -194,36 +195,36 @@ simple_tests(rpcc *c)
 	// the reply packet.
 	std::string rep;
 	int intret = c->call(22, (std::string)"hello", (std::string)" goodbye", rep);
-	assert(intret == 0); // this is what handle_22 returns
-	assert(rep == "hello goodbye");
+	VERIFY(intret == 0); // this is what handle_22 returns
+	VERIFY(rep == "hello goodbye");
 	printf("   -- string concat RPC .. ok\n");
 
 	// small request, big reply (perhaps req via UDP, reply via TCP)
 	intret = c->call(25, 70000, rep, rpcc::to(200000));
-	assert(intret == 0);
-	assert(rep.size() == 70000);
+	VERIFY(intret == 0);
+	VERIFY(rep.size() == 70000);
 	printf("   -- small request, big reply .. ok\n");
 
 	// too few arguments
 	intret = c->call(22, (std::string)"just one", rep);
-	assert(intret < 0);
+	VERIFY(intret < 0);
 	printf("   -- too few arguments .. failed ok\n");
 
 	// too many arguments; proc #23 expects just one.
 	intret = c->call(23, 1001, 1002, rep);
-	assert(intret < 0);
+	VERIFY(intret < 0);
 	printf("   -- too many arguments .. failed ok\n");
 
 	// wrong return value size
 	int wrongrep;
 	intret = c->call(23, (std::string)"hello", (std::string)" goodbye", wrongrep);
-	assert(intret < 0);
+	VERIFY(intret < 0);
 	printf("   -- wrong ret value size .. failed ok\n");
 
 	// specify a timeout value to an RPC that should succeed (udp)
 	int xx = 0;
 	intret = c->call(23, 77, xx, rpcc::to(3000));
-	assert(intret == 0 && xx == 78);
+	VERIFY(intret == 0 && xx == 78);
 	printf("   -- no suprious timeout .. ok\n");
 
 	// specify a timeout value to an RPC that should succeed (tcp)
@@ -231,14 +232,14 @@ simple_tests(rpcc *c)
 		std::string arg(1000, 'x');
 		std::string rep;
 		c->call(22, arg, (std::string)"x", rep, rpcc::to(3000));
-		assert(rep.size() == 1001);
+		VERIFY(rep.size() == 1001);
 		printf("   -- no suprious timeout .. ok\n");
 	}
 
 	// huge RPC
 	std::string big(1000000, 'x');
 	intret = c->call(22, big, (std::string)"z", rep);
-	assert(rep.size() == 1000001);
+	VERIFY(rep.size() == 1000001);
 	printf("   -- huge 1M rpc request .. ok\n");
 
 	// specify a timeout value to an RPC that should timeout (udp)
@@ -251,7 +252,7 @@ simple_tests(rpcc *c)
 	time_t t0 = time(0);
 	intret = c1->bind(rpcc::to(3000));
 	time_t t1 = time(0);
-	assert(intret < 0 && (t1 - t0) <= 4);
+	VERIFY(intret < 0 && (t1 - t0) <= 4);
 	printf("   -- rpc timeout .. ok\n");
 	printf("simple_tests OK\n");
 }
@@ -269,11 +270,11 @@ concurrent_test(int nt)
 	pthread_t th[nt];
 	for(int i = 0; i < nt; i++){
 		ret = pthread_create(&th[i], &attr, client1, (void *) i);
-		assert(ret == 0);
+		VERIFY(ret == 0);
 	}
 
 	for(int i = 0; i < nt; i++){
-		assert(pthread_join(th[i], NULL) == 0);
+		VERIFY(pthread_join(th[i], NULL) == 0);
 	}
 	printf(" OK\n");
 }
@@ -284,7 +285,7 @@ lossy_test()
 	int ret;
 
 	printf("start lossy_test ...");
-	assert(setenv("RPC_LOSSY", "5", 1) == 0);
+	VERIFY(setenv("RPC_LOSSY", "5", 1) == 0);
 
 	if (server) {
 		delete server;
@@ -294,20 +295,20 @@ lossy_test()
 	for (int i = 0; i < NUM_CL; i++) {
 		delete clients[i];
 		clients[i] = new rpcc(dst);
-		assert(clients[i]->bind()==0);
+		VERIFY(clients[i]->bind()==0);
 	}
 
 	int nt = 1;
 	pthread_t th[nt];
 	for(int i = 0; i < nt; i++){
 		ret = pthread_create(&th[i], &attr, client2, (void *) i);
-		assert(ret == 0);
+		VERIFY(ret == 0);
 	}
 	for(int i = 0; i < nt; i++){
-		assert(pthread_join(th[i], NULL) == 0);
+		VERIFY(pthread_join(th[i], NULL) == 0);
 	}
 	printf(".. OK\n");
-	assert(setenv("RPC_LOSSY", "0", 1) == 0);
+	VERIFY(setenv("RPC_LOSSY", "0", 1) == 0);
 }
 
 void 
@@ -321,7 +322,7 @@ failure_test()
 	delete server;
 
 	client1 = new rpcc(dst);
-	assert (client1->bind(rpcc::to(3000)) < 0);
+	VERIFY (client1->bind(rpcc::to(3000)) < 0);
 	printf("   -- create new client and try to bind to failed server .. failed ok\n");
 
 	delete client1;
@@ -330,18 +331,18 @@ failure_test()
 
 	std::string rep;
 	int intret = client->call(22, (std::string)"hello", (std::string)" goodbye", rep);
-	assert(intret == rpc_const::oldsrv_failure);
+	VERIFY(intret == rpc_const::oldsrv_failure);
 	printf("   -- call recovered server with old client .. failed ok\n");
 
 	delete client;
 
 	clients[0] = client = new rpcc(dst);
-	assert (client->bind() >= 0);
-	assert (client->bind() < 0);
+	VERIFY (client->bind() >= 0);
+	VERIFY (client->bind() < 0);
 
 	intret = client->call(22, (std::string)"hello", (std::string)" goodbye", rep);
-	assert(intret == 0);
-	assert(rep == "hello goodbye");
+	VERIFY(intret == 0);
+	VERIFY(rep == "hello goodbye");
 
 	printf("   -- delete existing rpc client, create replacement rpc client .. ok\n");
 
@@ -353,11 +354,11 @@ failure_test()
 	pthread_t th[nt];
 	for(int i = 0; i < nt; i++){
 		ret = pthread_create(&th[i], &attr, client3, (void *) client);
-		assert(ret == 0);
+		VERIFY(ret == 0);
 	}
 
 	for(int i = 0; i < nt; i++){
-		assert(pthread_join(th[i], NULL) == 0);
+		VERIFY(pthread_join(th[i], NULL) == 0);
 	}
 	printf("ok\n");
 
@@ -366,17 +367,17 @@ failure_test()
 
 	startserver();
 	clients[0] = client = new rpcc(dst);
-	assert (client->bind() >= 0);
+	VERIFY (client->bind() >= 0);
 	printf("   -- delete existing rpc client and server, create replacements.. ok\n");
 
 	printf("   -- concurrent test on new client and server w/ %d threads ..", nt);
 	for(int i = 0; i < nt; i++){
 		ret = pthread_create(&th[i], &attr, client3, (void *)client);
-		assert(ret == 0);
+		VERIFY(ret == 0);
 	}
 
 	for(int i = 0; i < nt; i++){
-		assert(pthread_join(th[i], NULL) == 0);
+		VERIFY(pthread_join(th[i], NULL) == 0);
 	}
 	printf("ok\n");
 
@@ -413,7 +414,7 @@ main(int argc, char *argv[])
 				port = atoi(optarg);
 				break;
 			case 'l':
-				assert(setenv("RPC_LOSSY", "5", 1) == 0);
+				VERIFY(setenv("RPC_LOSSY", "5", 1) == 0);
 			default:
 				break;
 		}
@@ -455,7 +456,7 @@ main(int argc, char *argv[])
 		// rpcc per server.
 		for (int i = 0; i < NUM_CL; i++) {
 			clients[i] = new rpcc(dst);
-			assert (clients[i]->bind() == 0);
+			VERIFY (clients[i]->bind() == 0);
 		}
 
 		simple_tests(clients[0]);
