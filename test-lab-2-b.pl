@@ -63,6 +63,11 @@ writeat($dir1, $f1, 190);
 checkcontent($dir1, $f1);
 print "OK\n";
 
+print "Write beyond the end of an existing file: ";
+writeat($dir1, $f1, 65536);
+checkcontent($dir1, $f1);
+print "OK\n";
+
 print "Check that one cannot open non-existant file: ";
 checknot($dir1, "z-$$-z");
 print "OK\n";
@@ -162,6 +167,12 @@ sub writeat {
     my $contents = rand();
 
     my $x = $files->{$name};
+    if (length($x) < $off + length($contents)) {
+      my $nappend = $off + length($contents) - length($x);
+      for (my $i=0; $i < $nappend; $i++) {
+        $x .= "\0";
+      }
+    }
     substr($x, $off, length($contents)) = $contents;
     $files->{$name} = $x;
     

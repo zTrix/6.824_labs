@@ -476,7 +476,7 @@ rpcs::updatestat(unsigned int proc)
 		std::map<int, int>::iterator i;
 		printf("RPC STATS: ");
 		for (i = counts_.begin(); i != counts_.end(); i++){
-			printf("%x %d ", i->first, i->second);
+			printf("%x:%d ", i->first, i->second);
 		}
 		printf("\n");
 
