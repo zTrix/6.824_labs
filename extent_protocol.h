@@ -9,14 +9,13 @@ class extent_protocol {
  public:
   typedef int status;
   typedef unsigned long long extentid_t;
-  enum xxstatus { OK, RPCERR, NOENT, IOERR, FBIG};
+  enum xxstatus { OK, RPCERR, NOENT, IOERR };
   enum rpc_numbers {
     put = 0x6001,
     get,
     getattr,
     remove
   };
-  static const unsigned int maxextent = 8192*1000;
 
   struct attr {
     unsigned int atime;
