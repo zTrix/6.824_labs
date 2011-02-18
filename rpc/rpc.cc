@@ -297,7 +297,7 @@ rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep,
 		}
 	}
 
-        if (ca.done)
+        if (ca.done && lossytest_)
         {
                 ScopedLock ml(&m_);
                 if (!dup_req_.isvalid()) {
