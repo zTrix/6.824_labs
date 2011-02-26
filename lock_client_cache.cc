@@ -25,8 +25,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
   id = host.str();
   last_port = rlock_port;
   rpcs *rlsrpc = new rpcs(rlock_port);
-
-  pthread_mutex_init(&lock_cache_mutex, NULL);
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke_handler);
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
 }

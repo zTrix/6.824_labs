@@ -22,6 +22,7 @@ char d1[512], d2[512];
 extern int errno;
 
 char big[20001];
+char huge[65536*2+1];
 
 void
 create1(const char *d, const char *f, const char *in)
@@ -406,7 +407,8 @@ main(int argc, char *argv[])
 
   for(i = 0; i < sizeof(big)-1; i++)
     big[i] = 'x';
-
+  for(i = 0; i < sizeof(huge)-1; i++)
+    huge[i] = '0';
 
   printf("Create then read: ");
   create1(d1, "f1", "aaa");
@@ -558,6 +560,7 @@ main(int argc, char *argv[])
   printf("OK\n");
 
   printf("Concurrent writes to different parts of same file: ");
+  create1(d1, "www", huge);
   pid = fork();
   if(pid < 0){
     perror("test-lab-3-b: fork");

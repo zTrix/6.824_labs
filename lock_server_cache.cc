@@ -12,27 +12,11 @@
 
 lock_server_cache::lock_server_cache()
 {
-  VERIFY(pthread_mutex_init(&server_mutex, NULL) == 0);
-  VERIFY(pthread_cond_init(&revoke_cond, NULL) == 0);  
-}
-
-
-// caller must hold server_mutex
-void
-lock_server_cache::dorevoke(lock *l)
-{
-}
-
-
-// caller should hold server_mutex
-void
-lock_server_cache::doretry(lock *l)
-{
 }
 
 
 int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, 
-             int &r)
+                               int &)
 {
   lock_protocol::status ret = lock_protocol::OK;
   return ret;
