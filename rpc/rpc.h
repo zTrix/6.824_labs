@@ -98,6 +98,8 @@ class rpcc : public chanmgr {
 		void set_reachable(bool r) { reachable_ = r; }
 
 		void cancel();
+                
+                int islossy() { return lossytest_ > 0; }
 
 		int call1(unsigned int proc, 
 				marshall &req, unmarshall &rep, TO to);
@@ -274,9 +276,9 @@ class rpcs : public chanmgr {
 			sz = 0;
 		}
 		unsigned int xid;
-		bool cb_present;
-		char *buf;
-		int sz;
+		bool cb_present; // whether the reply buffer is valid
+		char *buf;      // the reply buffer
+		int sz;         // the size of reply buffer
 	};
 
 	int port_;
