@@ -535,9 +535,10 @@ rpcs::dispatch(djob_t *j)
 	{
 		ScopedLock pl(&procs_m_);
 		if(procs_.count(proc) < 1){
-			jsl_log(JSL_DBG_2, "rpcs::dispatch: bad proc %x procs.count %u\n",
-					proc, (unsigned)procs_.count(proc));
+			fprintf(stderr, "rpcs::dispatch: unknown proc %x.\n",
+				proc);
 			c->decref();
+                        VERIFY(0);
 			return;
 		}
 
@@ -588,8 +589,14 @@ rpcs::dispatch(djob_t *j)
 			}
 
 			rh.ret = f->fn(req, rep);
-			VERIFY(rh.ret >= 0 || 
-				rh.ret == rpc_const::unmarshal_args_failure);
+                        if (rh.ret == rpc_const::unmarshal_args_failure) {
+                                fprintf(stderr, "rpcs::dispatch: failed to"
+                                       " unmarshall the arguments. You are"
+                                       " probably calling RPC 0x%x with wrong"
+                                       " types of arguments.\n", proc);
+                                VERIFY(0);
+                        }
+			VERIFY(rh.ret >= 0);
 
 			rep.pack_reply_header(rh);
 			rep.take_buf(&b1,&sz1);

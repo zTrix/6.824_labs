@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <list>
 #include <map>
+#include <stdio.h>
 
 #include "thr_pool.h"
 #include "marshall.h"
@@ -146,8 +147,13 @@ rpcc::call_m(unsigned int proc, marshall &req, R & r, TO to)
 	int intret = call1(proc, req, u, to);
 	if (intret < 0) return intret;
 	u >> r;
-	if(u.okdone() != true)
+	if(u.okdone() != true) {
+                fprintf(stderr, "rpcc::call_m: failed to unmarshall the reply."
+                       "You are probably calling RPC 0x%x with wrong return "
+                       "type.\n", proc);
+                VERIFY(0);
 		return rpc_const::unmarshal_reply_failure;
+        }
 	return intret;
 }
 
