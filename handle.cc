@@ -24,10 +24,9 @@ handle::safebind()
   rpcc *cl = new rpcc(dstsock);
   tprintf("handler_mgr::get_handle trying to bind...%s\n", h->m.c_str());
   int ret;
-  if (cl->islossy())
-        ret = cl->bind();
-  else
-        ret = cl->bind(rpcc::to(1000));
+  // handle class has to tolerate lossy network, since we may test
+  // students' lab with RPC_LOSSY=5 from lab 1 to lab 5
+  ret = cl->bind();
   if (ret < 0) {
     tprintf("handle_mgr::get_handle bind failure! %s %d\n", h->m.c_str(), ret);
     delete cl;
