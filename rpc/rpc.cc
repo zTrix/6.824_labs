@@ -624,14 +624,17 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 	ScopedLock rwl(&reply_window_m_);
         // You fill this in for Lab 1.
     assert(xid > xid_rep);
-    printf("client = %d, xid = %d, xid_rep = %d\n", clt_nonce, xid, xid_rep);
+    //printf("client = %d, xid = %d, xid_rep = %d\n", clt_nonce, xid, xid_rep);
     std::list<reply_t> &window = reply_window_[clt_nonce];
+    std::list<reply_t>::iterator it;
     if (window.size()) {
         reply_t & front = window.front();
         reply_t & back = window.back();
-        std::list<reply_t>::iterator it;
         if (front.xid <= xid_rep) {
             for (it = window.begin(); it->xid <= xid_rep && it != window.end(); ++it) {
+                if (!it->cb_present || !it->buf) {
+                    break;
+                }
                 free((*it).buf);
             }
             window.erase(window.begin(), it);
@@ -655,7 +658,17 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
     }
     reply_t r(xid);
     r.cb_present = true;
-    window.push_back(r);
+    bool inserted = false;
+    for (it = window.begin(); it != window.end(); ++it) {
+        if (it->xid > xid) {
+            window.insert(it, r);
+            inserted = true;
+            break;
+        }
+    }
+    if (!inserted) {
+        window.push_back(r);
+    }
     return NEW;
 }
 
