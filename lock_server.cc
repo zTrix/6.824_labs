@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include "rpc/slock.h"
+#include "zdebug.h"
 
 lock_server::lock_server(): nacquire (0), server_mutex (PTHREAD_MUTEX_INITIALIZER) {
 }
@@ -17,14 +18,6 @@ lock_server::stat(int clt, lock_protocol::lockid_t lid, int &r) {
     r = nacquire;
     return ret;
 }
-
-//#define DEBUG
-
-#ifdef DEBUG
-    #define Z(args...) printf(args)
-#else
-    #define Z(args...)
-#endif
 
 lock_protocol::status
 lock_server::acquire(int clt, lock_protocol::lockid_t lid, int &r) {
