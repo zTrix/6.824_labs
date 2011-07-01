@@ -51,7 +51,7 @@ lock_server::release(int clt, lock_protocol::lockid_t lid, int &r) {
     if (it != locks.end()) {
         Z("client %d released lock %lld\n", clt, lid);
         it->second.client = -1;
-        int ret = pthread_cond_broadcast(&((*it).second.cond));
+        int ret = pthread_cond_signal(&((*it).second.cond));
         if (ret)
             return lock_protocol::RETRY;
     }

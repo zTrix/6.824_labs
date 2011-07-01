@@ -631,7 +631,7 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
         reply_t & front = window.front();
         reply_t & back = window.back();
         if (front.xid <= xid_rep) {
-            for (it = window.begin(); it->xid <= xid_rep && it != window.end(); ++it) {
+            for (it = window.begin(); it->xid < xid_rep && it != window.end(); ++it) {
                 if (!it->cb_present || !it->buf) {
                     break;
                 }
