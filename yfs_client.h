@@ -43,6 +43,9 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+  int get(inum, std::string &);
+  int put(inum, std::string);
+  inum rand_inum(bool isfile = true);
 };
 
 #endif 

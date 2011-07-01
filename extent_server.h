@@ -8,7 +8,12 @@
 #include "extent_protocol.h"
 
 class extent_server {
-
+    struct Extent {
+        std::string name;
+        extent_protocol::attr attribute;
+    };
+private:
+    std::map<extent_protocol::extentid_t, Extent> exts;
  public:
   extent_server();
 

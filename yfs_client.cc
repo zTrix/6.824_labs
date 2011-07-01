@@ -8,12 +8,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
+    srand(time(NULL));
+}
 
+yfs_client::inum yfs_client::rand_inum(bool isfile) {
+    return rand() & 0x7fffffff | isfile << 31 ;
 }
 
 yfs_client::inum
@@ -89,5 +94,37 @@ yfs_client::getdir(inum inum, dirinfo &din)
   return r;
 }
 
+int yfs_client::put(inum num, std::string buf) {
+    extent_protocol::status rs;
+    rs = ec->get(num, buf);
+    if (rs == extent_protocol::OK) {
+        return EXIST;
+    }
+    rs = ec->put(num, buf);
+    if (rs == extent_protocol::OK) {
+        return OK;
+    }
+    return IOERR;
+}
 
+int yfs_client::get(inum num, std::string &buf) {
+    extent_protocol::status rs = ec->get(num, buf);
+    if (rs == extent_protocol::OK) {
+        return OK;
+    }
+    return IOERR;
+}
+
+int yfs_client::create(inum num, const char * name) {
+    if (isdir(parent)) {
+        inum num = rand_inum();
+        yfs_client::status rs;
+        rs = put(num, name);
+        if (rs == EXIST) {
+            return rs;
+        }
+        return yfs_client::OK;
+    }
+    return yfs_client::NOENT;
+}
 

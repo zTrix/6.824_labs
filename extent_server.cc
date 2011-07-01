@@ -8,37 +8,55 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-extent_server::extent_server() {}
+extent_server::extent_server() {
+    put(1, "", 0);
+}
 
 
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
   // You fill this in for Lab 2.
-  return extent_protocol::IOERR;
+  extent_protocol::attr a;
+  a.mtime = a.ctime = a.atime = time(NULL);
+  a.size = buf.length();
+  if (exts.find(id) != exts.end()) {
+    a.atime = exts[id].attribute.atime;
+  }
+  exts[id].name = buf;
+  exts[id].attribute = a;
+  return extent_protocol::OK;
 }
 
 int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 {
   // You fill this in for Lab 2.
-  return extent_protocol::IOERR;
+  if (exts.find(id) == exts.end()) {
+    return extent_protocol::NOENT;
+  }
+  buf = exts[id].name;
+  exts[id].attribute.atime = time(NULL);
+  return extent_protocol::OK;
 }
 
 int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr &a)
 {
   // You fill this in for Lab 2.
-  // You replace this with a real implementation. We send a phony response
-  // for now because it's difficult to get FUSE to do anything (including
-  // unmount) if getattr fails.
-  a.size = 0;
-  a.atime = 0;
-  a.mtime = 0;
-  a.ctime = 0;
+  if (exts.find(id) == exts.end()) {
+    return extent_protocol::NOENT;
+  }
+  a = exts[id].attribute;
   return extent_protocol::OK;
 }
 
 int extent_server::remove(extent_protocol::extentid_t id, int &)
 {
   // You fill this in for Lab 2.
-  return extent_protocol::IOERR;
+  std::map<extent_protocol::extentid_t, Extent>::iterator it;
+  it = exts.find(id);
+  if (it == exts.end()) {
+    return extent_protocol::NOENT;
+  }
+  exts.erase(it);
+  return extent_protocol::OK;
 }
 
