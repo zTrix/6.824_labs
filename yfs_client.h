@@ -5,6 +5,7 @@
 //#include "yfs_protocol.h"
 #include "extent_client.h"
 #include <vector>
+#include <sys/stat.h>
 
 #include "lock_protocol.h"
 #include "lock_client.h"
@@ -35,8 +36,8 @@ class yfs_client {
 
  private:
   static std::string filename(inum);
-  static inum n2i(std::string);
  public:
+  static inum n2i(std::string);
 
   yfs_client(std::string, std::string);
 
@@ -45,6 +46,14 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+  int get(inum, std::string &);
+  int put(inum, std::string);
+  inum rand_inum(bool isfile = true);
+  int create(inum parent, const char * name, unsigned long &);
+  bool lookup(inum parent, const char * name, unsigned long &);
+  int read(inum ino, size_t size, off_t off, std::string &ret);
+  int write(inum ino, const char *buf, size_t size, off_t off);
+  int setattr(inum ino, struct stat * attr);
 };
 
 #endif 

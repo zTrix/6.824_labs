@@ -648,9 +648,54 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 		unsigned int xid_rep, char **b, int *sz)
 {
 	ScopedLock rwl(&reply_window_m_);
-
         // You fill this in for Lab 1.
-	return NEW;
+    assert(xid > xid_rep);
+    //printf("client = %d, xid = %d, xid_rep = %d\n", clt_nonce, xid, xid_rep);
+    std::list<reply_t> &window = reply_window_[clt_nonce];
+    std::list<reply_t>::iterator it;
+    if (window.size()) {
+        reply_t & front = window.front();
+        reply_t & back = window.back();
+        if (front.xid <= xid_rep) {
+            for (it = window.begin(); it->xid <= xid_rep && it != window.end(); ++it) {
+                if (!it->cb_present || !it->buf) {
+                    break;
+                }
+                free((*it).buf);
+            }
+            window.erase(window.begin(), it);
+        }
+        if (window.size()) {
+            if (window.front().xid > xid) return FORGOTTEN;
+            if (back.xid >= xid) {
+                for (it = window.begin(); it != window.end(); ++it) {
+                    if ((*it).xid == xid) {
+                        if (it->cb_present) {
+                            return INPROGRESS;
+                        } else {
+                            *b = it->buf;
+                            *sz = it->sz;
+                            return DONE;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    reply_t r(xid);
+    r.cb_present = true;
+    bool inserted = false;
+    for (it = window.begin(); it != window.end(); ++it) {
+        if (it->xid > xid) {
+            window.insert(it, r);
+            inserted = true;
+            break;
+        }
+    }
+    if (!inserted) {
+        window.push_back(r);
+    }
+    return NEW;
 }
 
 // rpcs::dispatch calls add_reply when it is sending a reply to an RPC,
@@ -664,6 +709,17 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 {
 	ScopedLock rwl(&reply_window_m_);
         // You fill this in for Lab 1.
+    std::list<reply_t> &window = reply_window_[clt_nonce];
+    assert(window.size() > 0);
+    std::list<reply_t>::iterator it;
+    for (it = window.begin(); it != window.end(); ++it) {
+        if (it->xid == xid) {
+            it->buf = b;
+            it->sz = sz;
+            it->cb_present = false;
+            break;
+        }
+    }
 }
 
 void
