@@ -115,7 +115,7 @@ int yfs_client::get(inum num, std::string &buf) {
     return IOERR;
 }
 
-int yfs_client::create(inum parent, const char * name, unsigned long &ino, struct stat &st) {
+int yfs_client::create(inum parent, const char * name, unsigned long &ino) {
     Z("create : parentis %lld name is %s\n", parent, name);
     if (isdir(parent)) {
         std::string b;
@@ -131,26 +131,16 @@ int yfs_client::create(inum parent, const char * name, unsigned long &ino, struc
         inum num = rand_inum();
         ino = (unsigned long)(num & 0xffffffff);
         b = b.append(filename(num) + t);
-        rs = put(num, name);
+        rs = put(num, "");
         if (rs != OK) return rs;
         rs = put(parent, b);
         if (rs != OK) return rs;
-        extent_protocol::attr a;
-        rs = ec->getattr(num, a);
-        if (rs != extent_protocol::OK) {
-            printf("create:getattr: ret is %d \n", rs);
-            return rs;
-        }
-        st.st_atime = a.atime;
-        st.st_mtime = a.mtime;
-        st.st_ctime = a.ctime;
-        st.st_size = a.size;
         return OK;
     }
     return NOENT;
 }
 
-bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino, struct stat & st) {
+bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino) {
     Z("parent %lld name '%s'\n", parent, name);
     if (isdir(parent)) {
         //printf("%d %d \n", name == NULL, strlen(name));
@@ -172,17 +162,7 @@ bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino, struc
             }
             assert(found > left);
             ino = n2i(b.substr(left, found - left));
-            st.st_ino = ino;
             
-            extent_protocol::attr a;
-            if (ec->getattr(ino, a) != extent_protocol::OK) {
-                return false;
-            }
-
-            st.st_atime = a.atime;
-            st.st_mtime = a.mtime;
-            st.st_ctime = a.ctime;
-            st.st_size = a.size;
             return true;
         }
     }

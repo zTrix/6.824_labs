@@ -135,7 +135,11 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   e->entry_timeout = 0.0;
   e->generation = 0;
   // You fill this in for Lab 2
-  return yfs->create(parent, name, e->ino, e->attr);
+  int rs = yfs->create(parent, name, e->ino);
+  if (rs != yfs_client::OK) return rs;
+  rs = getattr(e->ino, e->attr);
+  Z("createhelper, e->ino = %x, e->attr.size = %llx, %d\n", e->ino, e->attr.st_size, sizeof(e->attr.st_size));
+  return rs;
 }
 
 void
@@ -184,7 +188,8 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // Look up the file named `name' in the directory referred to by
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
-  found = yfs->lookup(parent, name, e.ino, e.attr);
+  found = yfs->lookup(parent, name, e.ino);
+  getattr(e.ino, e.attr);
 
   if (found)
     fuse_reply_entry(req, &e);
