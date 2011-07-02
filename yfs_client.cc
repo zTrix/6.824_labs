@@ -19,7 +19,7 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 
 yfs_client::inum yfs_client::rand_inum(bool isfile) {
     inum ret = 0;
-    ret = (unsigned long long) ( rand() & 0x7fffffff | isfile << 31 );
+    ret = (unsigned long long) ( (rand() & 0x7fffffff) | (isfile << 31) );
     ret &= 0xffffffff;
     return ret;
 }
@@ -161,7 +161,7 @@ bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino, struc
             return false;
         }
         std::string t = "/" + std::string(name) + "/";
-        int found = b.find(t);
+        unsigned int found = b.find(t);
         if (found != std::string::npos) {
             assert(found > 0);
             unsigned int left = b.rfind('/', found - 1);
@@ -212,7 +212,6 @@ int yfs_client::write(inum ino, const char * buf, size_t size, off_t off) {
     if (rs != OK) {
         return rs;
     }
-    int sz = ori.size();
     std::string after = ori.substr(0, off).append(std::string(buf, size));
     rs = put(ino, after);
     return rs;
@@ -224,7 +223,7 @@ int yfs_client::setattr(inum fileno, struct stat *attr) {
     if (rs != OK) {
         return rs;
     }
-    int sz = buf.size();
+    unsigned int sz = buf.size();
     if (sz < attr->st_size) {
         char * a = new char[attr->st_size - sz];
         buf.append(std::string(a));
