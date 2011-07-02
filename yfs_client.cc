@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
-
+#include "zdebug.h"
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
@@ -18,7 +18,10 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 }
 
 yfs_client::inum yfs_client::rand_inum(bool isfile) {
-    return rand() & 0x7fffffff | isfile << 31 ;
+    inum ret = 0;
+    ret = (unsigned long long) ( rand() & 0x7fffffff | isfile << 31 );
+    ret &= 0xffffffff;
+    return ret;
 }
 
 yfs_client::inum
@@ -95,11 +98,8 @@ yfs_client::getdir(inum inum, dirinfo &din)
 }
 
 int yfs_client::put(inum num, std::string buf) {
+    Z("put: %llx %s\n", num, buf.c_str());
     extent_protocol::status rs;
-    rs = ec->get(num, buf);
-    if (rs == extent_protocol::OK) {
-        return EXIST;
-    }
     rs = ec->put(num, buf);
     if (rs == extent_protocol::OK) {
         return OK;
@@ -115,16 +115,123 @@ int yfs_client::get(inum num, std::string &buf) {
     return IOERR;
 }
 
-int yfs_client::create(inum num, const char * name) {
+int yfs_client::create(inum parent, const char * name, unsigned long &ino, struct stat &st) {
+    Z("create : parentis %lld name is %s\n", parent, name);
     if (isdir(parent)) {
-        inum num = rand_inum();
-        yfs_client::status rs;
-        rs = put(num, name);
-        if (rs == EXIST) {
+        std::string b;
+        int rs = get(parent, b);
+        if (rs != OK) {
             return rs;
         }
-        return yfs_client::OK;
+        std::string t = "/" + std::string(name) + "/";
+        if (b.find(t) != std::string::npos) {
+            printf("exist !!!!!\n");
+            return EXIST;
+        }
+        inum num = rand_inum();
+        ino = (unsigned long)(num & 0xffffffff);
+        b = b.append(filename(num) + t);
+        rs = put(num, name);
+        if (rs != OK) return rs;
+        rs = put(parent, b);
+        if (rs != OK) return rs;
+        extent_protocol::attr a;
+        rs = ec->getattr(num, a);
+        if (rs != extent_protocol::OK) {
+            printf("create:getattr: ret is %d \n", rs);
+            return rs;
+        }
+        st.st_atime = a.atime;
+        st.st_mtime = a.mtime;
+        st.st_ctime = a.ctime;
+        st.st_size = a.size;
+        return OK;
     }
-    return yfs_client::NOENT;
+    return NOENT;
+}
+
+bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino, struct stat & st) {
+    Z("parent %lld name '%s'\n", parent, name);
+    if (isdir(parent)) {
+        //printf("%d %d \n", name == NULL, strlen(name));
+        if (name == NULL || strlen(name) < 1) return true;
+        std::string b;
+        int rs = get(parent, b);
+        if (rs != OK) {
+            return false;
+        }
+        std::string t = "/" + std::string(name) + "/";
+        int found = b.find(t);
+        if (found != std::string::npos) {
+            assert(found > 0);
+            unsigned int left = b.rfind('/', found - 1);
+            if (left == std::string::npos) {
+                left = 0;
+            } else {
+                left++;
+            }
+            assert(found > left);
+            ino = n2i(b.substr(left, found - left));
+            st.st_ino = ino;
+            
+            extent_protocol::attr a;
+            if (ec->getattr(ino, a) != extent_protocol::OK) {
+                return false;
+            }
+
+            st.st_atime = a.atime;
+            st.st_mtime = a.mtime;
+            st.st_ctime = a.ctime;
+            st.st_size = a.size;
+            return true;
+        }
+    }
+    return false;
+}
+
+int yfs_client::read(inum ino, size_t size, off_t off, std::string &ret) {
+    std::string buf;
+    int rs = get(ino, buf);
+    if (rs != OK) {
+        return rs;
+    }
+    if (off + size > buf.size()) {
+        int reside = off + size - buf.size();
+        char * a = new char[reside];
+        bzero(a, off + size - buf.size());
+        ret = buf.substr(off, buf.size() - off).append(std::string(a, reside));
+    } else {
+        ret = buf.substr(off, size);
+    }
+    return OK;
+}
+
+int yfs_client::write(inum ino, const char * buf, size_t size, off_t off) {
+    std::string ori;
+    int rs = get(ino, ori);
+    if (rs != OK) {
+        return rs;
+    }
+    int sz = ori.size();
+    std::string after = ori.substr(0, off).append(std::string(buf, size));
+    rs = put(ino, after);
+    return rs;
+}
+
+int yfs_client::setattr(inum fileno, struct stat *attr) {
+    std::string buf;
+    int rs = get(fileno, buf);
+    if (rs != OK) {
+        return rs;
+    }
+    int sz = buf.size();
+    if (sz < attr->st_size) {
+        char * a = new char[attr->st_size - sz];
+        buf.append(std::string(a));
+    } else {
+        buf = buf.substr(0, attr->st_size);
+    }
+    rs = put(fileno, buf);
+    return rs;
 }
 

@@ -7,15 +7,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "zdebug.h"
 
 extent_server::extent_server() {
-    put(1, "", 0);
+    int r;
+    put(1, "", r);
 }
 
 
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
   // You fill this in for Lab 2.
+  //printf("extent_server : %llu %llx %s\n", id, id, buf.c_str());
   extent_protocol::attr a;
   a.mtime = a.ctime = a.atime = time(NULL);
   a.size = buf.length();
@@ -42,7 +45,7 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
 {
   // You fill this in for Lab 2.
   if (exts.find(id) == exts.end()) {
-    return extent_protocol::NOENT;
+      return extent_protocol::NOENT;
   }
   a = exts[id].attribute;
   return extent_protocol::OK;

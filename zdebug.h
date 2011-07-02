@@ -4,7 +4,7 @@
 #define DEBUG
 
 #ifdef DEBUG
-    #define Z(args...) printf(args)
+    #define Z(args...) printf(" [ ZZ ] "args)
 #else
     #define Z(args...)
 #endif
