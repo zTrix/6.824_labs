@@ -88,6 +88,7 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
     struct stat st;
     // You fill this in for Lab 2
     int rs = yfs->setattr(ino, attr);
+    getattr(ino, st);
     if (rs == yfs_client::OK) {
         fuse_reply_attr(req, &st, 0);
     } else {
@@ -138,7 +139,6 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   int rs = yfs->create(parent, name, e->ino);
   if (rs != yfs_client::OK) return rs;
   rs = getattr(e->ino, e->attr);
-  Z("createhelper, e->ino = %x, e->attr.size = %llx, %d\n", e->ino, e->attr.st_size, sizeof(e->attr.st_size));
   return rs;
 }
 

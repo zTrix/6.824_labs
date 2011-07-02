@@ -125,7 +125,7 @@ int yfs_client::create(inum parent, const char * name, unsigned long &ino) {
         }
         std::string t = "/" + std::string(name) + "/";
         if (b.find(t) != std::string::npos) {
-            printf("exist !!!!!\n");
+            Z("create file exist !!!!!\n");
             return EXIST;
         }
         inum num = rand_inum();
@@ -192,7 +192,19 @@ int yfs_client::write(inum ino, const char * buf, size_t size, off_t off) {
     if (rs != OK) {
         return rs;
     }
-    std::string after = ori.substr(0, off).append(std::string(buf, size));
+    std::string after;
+    if (off <= ori.size() || !off) {
+        after = ori.substr(0, off).append(std::string(buf, size));
+        if (off + size < ori.size()) {
+            after.append(ori.substr(off + size, ori.size() - off - size));
+        }
+    } else {
+        int gap = off - ori.size();
+        char * a = new char[gap];
+        bzero(a, gap);
+        after = ori.append(std::string(a, gap));
+        after = after.append(std::string(buf, size));
+    }
     rs = put(ino, after);
     return rs;
 }
