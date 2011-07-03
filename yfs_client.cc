@@ -120,7 +120,7 @@ int yfs_client::get(inum num, std::string &buf) {
     return IOERR;
 }
 
-int yfs_client::create(inum parent, const char * name, unsigned long &ino) {
+int yfs_client::create(inum parent, const char * name, bool isfile, unsigned long &ino) {
     Z("create : parentis %lld name is %s\n", parent, name);
     if (isdir(parent)) {
         std::string b;
@@ -130,10 +130,10 @@ int yfs_client::create(inum parent, const char * name, unsigned long &ino) {
         }
         std::string t = "/" + std::string(name) + "/";
         if (b.find(t) != std::string::npos) {
-            Z("create file exist !!!!!\n");
+            ERR("create file exist ");
             return EXIST;
         }
-        inum num = rand_inum();
+        inum num = rand_inum(isfile);
         ino = (unsigned long)(num & 0xffffffff);
         b = b.append(filename(num) + t);
         rs = put(num, "");
@@ -233,5 +233,57 @@ int yfs_client::setattr(inum fileno, struct stat *attr) {
     }
     rs = put(fileno, buf);
     return rs;
+}
+
+int yfs_client::unlink(inum parent, const char *name) {
+    Z("unlink parent %lld name '%s'\n", parent, name);
+    if (isdir(parent)) {
+        //printf("%d %d \n", name == NULL, strlen(name));
+        if (name == NULL || strlen(name) < 1) {
+            ERR("bad param: name");
+        }
+        std::string b;
+        int rs = get(parent, b);
+        if (rs != OK) {
+            ERR("rs = %d", rs);
+            return NOENT;
+        }
+        std::string n = std::string(name);
+        std::string t = "/" + n + "/";
+        size_t found = b.find(t);
+        if (found != std::string::npos) {
+            size_t left = b.rfind('/', found - 1);
+            if (left == std::string::npos) {
+                left = 0;
+            } else {
+                left++;
+            }
+            assert(found > left);
+            inum ino = n2i(b.substr(left, found - left));
+            rs = ec->remove(ino);
+            if (rs != extent_protocol::OK) {
+                ERR("remove error");
+                return NOENT;
+            }
+            std::string after = "";
+            if (left) {
+                after = after.append(b.substr(0, left));
+            }
+            if (found + t.size() < b.size()) {
+                after = after.append(b.substr(found + t.size(), b.size() - found - t.size()));
+            }
+            rs = put(parent, after);
+            if (rs != OK) {
+                ERR("put parent failed");
+                return NOENT;
+            }
+            return OK;
+        } else {
+            ERR("file or dir not found");
+        }
+    } else {
+        ERR("parent is not dir");
+    }
+    return NOENT;
 }
 

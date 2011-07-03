@@ -134,7 +134,7 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   e->entry_timeout = 0.0;
   e->generation = 0;
   // You fill this in for Lab 2
-  int rs = yfs->create(parent, name, e->ino);
+  int rs = yfs->create(parent, name, true, e->ino);
   if (rs != yfs_client::OK) return rs;
   rs = getattr(e->ino, e->attr);
   return rs;
@@ -286,11 +286,13 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
   e.generation = 0;
 
   // You fill this in for Lab 3
-#if 0
-  fuse_reply_entry(req, &e);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+  int rs = yfs->create(parent, name, false, e.ino);
+  if (rs == yfs_client::OK) {
+      rs = getattr(e.ino, e.attr);
+      fuse_reply_entry(req, &e);
+  } else {
+      fuse_reply_err(req, ENOSYS);
+  }
 }
 
 void
@@ -300,7 +302,11 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
   // You fill this in for Lab 3
   // Success:	fuse_reply_err(req, 0);
   // Not found:	fuse_reply_err(req, ENOENT);
-  fuse_reply_err(req, ENOSYS);
+  if (yfs->unlink(parent, name) == yfs_client::OK) {
+    fuse_reply_err(req, 0);
+  } else {
+    fuse_reply_err(req, ENOSYS);
+  }
 }
 
 void

@@ -49,11 +49,12 @@ class yfs_client {
   int get(inum, std::string &);
   int put(inum, std::string);
   inum rand_inum(bool isfile = true);
-  int create(inum parent, const char * name, unsigned long &);
+  int create(inum parent, const char * name, bool isfile, unsigned long &);
   bool lookup(inum parent, const char * name, unsigned long &);
   int read(inum ino, size_t size, off_t off, std::string &ret);
   int write(inum ino, const char *buf, size_t size, off_t off);
   int setattr(inum ino, struct stat * attr);
+  int unlink(inum parent, const char *name);
 };
 
 #endif 
