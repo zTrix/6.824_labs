@@ -151,10 +151,10 @@ bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino) {
             return false;
         }
         std::string t = "/" + std::string(name) + "/";
-        unsigned int found = b.find(t);
+        size_t found = b.find(t);
         if (found != std::string::npos) {
             assert(found > 0);
-            unsigned int left = b.rfind('/', found - 1);
+            size_t left = b.rfind('/', found - 1);
             if (left == std::string::npos) {
                 left = 0;
             } else {

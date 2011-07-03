@@ -189,12 +189,13 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
   found = yfs->lookup(parent, name, e.ino);
-  getattr(e.ino, e.attr);
 
-  if (found)
+  if (found) {
+    getattr(e.ino, e.attr);
     fuse_reply_entry(req, &e);
-  else
+  } else {
     fuse_reply_err(req, ENOENT);
+  }
 }
 
 

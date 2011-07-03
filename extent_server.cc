@@ -18,7 +18,7 @@ extent_server::extent_server() {
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
   // You fill this in for Lab 2.
-  //printf("extent_server : %llu %llx %s\n", id, id, buf.c_str());
+  Z("extent_server put : %llx %s\n", id, buf.c_str());
   extent_protocol::attr a;
   a.mtime = a.ctime = a.atime = time(NULL);
   a.size = buf.length();
@@ -32,6 +32,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 
 int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 {
+  Z("extent_server get : %llx\n", id);
   // You fill this in for Lab 2.
   if (exts.find(id) == exts.end()) {
     return extent_protocol::NOENT;
@@ -44,6 +45,7 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr &a)
 {
   // You fill this in for Lab 2.
+  Z("extent_server getattr : %llx \n", id);
   if (exts.find(id) == exts.end()) {
       return extent_protocol::NOENT;
   }
@@ -54,6 +56,7 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
 int extent_server::remove(extent_protocol::extentid_t id, int &)
 {
   // You fill this in for Lab 2.
+  Z("extent_server remove : %llx \n", id);
   std::map<extent_protocol::extentid_t, Extent>::iterator it;
   it = exts.find(id);
   if (it == exts.end()) {
