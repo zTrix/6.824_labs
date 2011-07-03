@@ -133,8 +133,10 @@ int yfs_client::create(inum parent, const char * name, bool isfile, unsigned lon
     Z("create : parentis %lld name is %s\n", parent, name);
     if (isdir(parent)) {
         std::string b;
+        ScopedLockClient slc(lc, parent);
         int rs = get(parent, b);
         if (rs != OK) {
+            ERR("get parent failed");
             return rs;
         }
         std::string t = "/" + std::string(name) + "/";
@@ -146,9 +148,15 @@ int yfs_client::create(inum parent, const char * name, bool isfile, unsigned lon
         ino = (unsigned long)(num & 0xffffffff);
         b = b.append(filename(num) + t);
         rs = put(num, "");
-        if (rs != OK) return rs;
+        if (rs != OK) {
+            ERR("create file, put operation failed");
+            return rs;
+        }
         rs = put(parent, b);
-        if (rs != OK) return rs;
+        if (rs != OK) {
+            ERR("update parent failed");
+            return rs;
+        }
         return OK;
     }
     return NOENT;
@@ -162,6 +170,7 @@ bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino) {
         std::string b;
         int rs = get(parent, b);
         if (rs != OK) {
+            ERR("look up parent failed");
             return false;
         }
         std::string t = "/" + std::string(name) + "/";
@@ -206,6 +215,7 @@ int yfs_client::write(inum ino, const char * buf, size_t size, off_t off) {
     }
     size_t uoff = (unsigned)off;
     std::string ori;
+    ScopedLockClient slc(lc, ino);
     int rs = get(ino, ori);
     if (rs != OK) {
         return rs;
@@ -229,6 +239,7 @@ int yfs_client::write(inum ino, const char * buf, size_t size, off_t off) {
 
 int yfs_client::setattr(inum fileno, struct stat *attr) {
     std::string buf;
+    ScopedLockClient slc(lc, fileno);
     int rs = get(fileno, buf);
     if (rs != OK) {
         return rs;
@@ -254,6 +265,7 @@ int yfs_client::unlink(inum parent, const char *name) {
             ERR("bad param: name");
         }
         std::string b;
+        ScopedLockClient slc(lc, parent);
         int rs = get(parent, b);
         if (rs != OK) {
             ERR("rs = %d", rs);
@@ -271,6 +283,7 @@ int yfs_client::unlink(inum parent, const char *name) {
             }
             assert(found > left);
             inum ino = n2i(b.substr(left, found - left));
+            ScopedLockClient slc2(lc, ino);
             rs = ec->remove(ino);
             if (rs != extent_protocol::OK) {
                 ERR("remove error");

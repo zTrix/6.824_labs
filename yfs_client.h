@@ -60,4 +60,18 @@ class yfs_client {
   void unlock(inum);
 };
 
+class ScopedLockClient {
+private:
+    lock_client * _lc;
+    uint64_t _ino;
+public:
+    ScopedLockClient(lock_client *lc, uint64_t ino): _lc(lc), _ino(ino) {
+        _lc->acquire(_ino);
+    }
+    ~ScopedLockClient() {
+        _lc->release(_ino);
+    }
+};
+
+
 #endif 
