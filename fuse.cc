@@ -82,9 +82,7 @@ fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
 void
 fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set, struct fuse_file_info *fi)
 {
-  printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
-    printf("   fuseserver_setattr set size to %llu\n", attr->st_size);
     struct stat st;
     // You fill this in for Lab 2
     int rs = yfs->setattr(ino, attr);
@@ -189,12 +187,13 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
   found = yfs->lookup(parent, name, e.ino);
-  getattr(e.ino, e.attr);
 
-  if (found)
+  if (found) {
+    getattr(e.ino, e.attr);
     fuse_reply_entry(req, &e);
-  else
+  } else {
     fuse_reply_err(req, ENOENT);
+  }
 }
 
 
@@ -250,7 +249,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
     Z("fuseserver_readdir: get buf not ok\n");
     fuse_reply_err(req, ENOTDIR);
   } else {
-  unsigned int left = 0, mid = 0, end = 0;
+    size_t left = 0, mid = 0, end = 0;
     while (true) {
       mid = buf.find_first_of('/', left);
       end = buf.find_first_of('/', mid + 1);
