@@ -187,19 +187,23 @@ int yfs_client::read(inum ino, size_t size, off_t off, std::string &ret) {
 }
 
 int yfs_client::write(inum ino, const char * buf, size_t size, off_t off) {
+    if (off < 0) {
+        return NOENT;
+    }
+    size_t uoff = (unsigned)off;
     std::string ori;
     int rs = get(ino, ori);
     if (rs != OK) {
         return rs;
     }
     std::string after;
-    if (off <= ori.size() || !off) {
-        after = ori.substr(0, off).append(std::string(buf, size));
-        if (off + size < ori.size()) {
-            after.append(ori.substr(off + size, ori.size() - off - size));
+    if (uoff <= ori.size() || !uoff) {
+        after = ori.substr(0, uoff).append(std::string(buf, size));
+        if (uoff + size < ori.size()) {
+            after.append(ori.substr(uoff + size, ori.size() - uoff - size));
         }
     } else {
-        int gap = off - ori.size();
+        size_t gap = uoff - ori.size();
         char * a = new char[gap];
         bzero(a, gap);
         after = ori.append(std::string(a, gap));
