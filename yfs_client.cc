@@ -14,8 +14,9 @@
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
-  ec = new extent_client(extent_dst);
-    srand(time(NULL));
+    ec = new extent_client(extent_dst);
+    lc = new lock_client(lock_dst);
+    srand(time(NULL) + getpid());
 }
 
 yfs_client::inum yfs_client::rand_inum(bool isfile) {
@@ -23,6 +24,14 @@ yfs_client::inum yfs_client::rand_inum(bool isfile) {
     ret = (unsigned long long) ( (rand() & 0x7fffffff) | (isfile << 31) );
     ret &= 0xffffffff;
     return ret;
+}
+
+void yfs_client::lock(inum ino) {
+    lc->acquire(ino);
+}
+
+void yfs_client::unlock(inum ino) {
+    lc->release(ino);
 }
 
 yfs_client::inum
@@ -226,8 +235,10 @@ int yfs_client::setattr(inum fileno, struct stat *attr) {
     }
     unsigned int sz = buf.size();
     if (sz < attr->st_size) {
-        char * a = new char[attr->st_size - sz];
-        buf.append(std::string(a));
+        int appendSz = attr->st_size - sz;
+        char * a = new char[appendSz];
+        bzero(a, appendSz);
+        buf.append(std::string(a, appendSz));
     } else {
         buf = buf.substr(0, attr->st_size);
     }
