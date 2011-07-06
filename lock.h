@@ -10,16 +10,4 @@ struct Lock {
     int client;
 };
 
-struct CacheLock {
-    enum State {
-        FREE,
-        LOCKED,
-        LOCKED_AND_WAIT,
-        ORDERED
-    };
-    std::string client;
-    State state;
-    std::list<std::string> queue;
-};
-
 #endif //__LOCK_H__

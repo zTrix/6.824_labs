@@ -15,13 +15,15 @@ struct ClientCacheLock {
         NONE,
         FREE,
         LOCKED,
-        ACQUIRING,
-        RELEASING
+        ACQUIRING,  // some thread is acquring the lock
+        RELEASING   // the lock is here, and we are releasing it
     };
     State state;
     pthread_cond_t wait_cond;
     pthread_cond_t retry_cond;
+    pthread_cond_t release_cond;
     pthread_t owner;
+    int revoke;     // revoke num before acquire returned OK
 };
 
 // Classes that inherit lock_release_user can override dorelease so that 

@@ -13,6 +13,18 @@
 
 using namespace std;
 
+struct CacheLock {
+    enum State {
+        FREE,
+        LOCKED,
+        LOCKED_AND_WAIT,
+        ORDERED
+    };
+    std::string client;
+    State state;
+    std::list<std::string> queue;
+};
+
 class lock_server_cache {
  private:
   int nacquire;
