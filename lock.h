@@ -17,10 +17,9 @@ struct CacheLock {
         LOCKED_AND_WAIT,
         ORDERED
     };
-    pthread_cond_t cond;
     std::string client;
-    CacheLockState state;
-
+    State state;
+    std::list<std::string> queue;
 };
 
 #endif //__LOCK_H__
