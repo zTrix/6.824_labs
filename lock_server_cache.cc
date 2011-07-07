@@ -67,6 +67,8 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
                     if (it->second.queue.size()) {
                         it->second.state = CacheLock::LOCKED_AND_WAIT;
                         // TODO: add revoke here
+                        need_revoke = true;
+                        holder_id = id;
                     } else {
                         it->second.state = CacheLock::LOCKED;
                     }
@@ -89,13 +91,12 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
         rpcc * cl = holder.safebind();
         if (cl) {
             int r;
-            Z("%s, RETRY from lock %llx, revoking lock", id.c_str(), lid);
+            Z("%s, revoking lock %llx from %s", id.c_str(), lid, holder_id.c_str());
             int rs = cl->call(rlock_protocol::revoke, lid, r);
             if (rs != rlock_protocol::OK) {
                 ERR("call revoke failed");
                 // TODO : should change the lock state back
             }
-            ret = lock_protocol::RETRY;
         } else {
             ERR("cannot safe bind");
         }
