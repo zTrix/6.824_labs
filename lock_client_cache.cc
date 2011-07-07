@@ -33,26 +33,30 @@ lock_client_cache::lock_client_cache(std::string xdst,
 }
 
 /*
-            revoke
-  LOCKED -----------> RELEASING
-  FREE   -----------> RELEASING and call release ------------> NONE
-  NONE   -----------> revoke++
-  RELEASING --------> revoke++
-  ACQUIRING --------> revoke++
-            
-          release
-  NONE -------------> ERROR
-  FREE -------------> ERROR
-  LOCKED -----------> FREE and signal wait_cond
-  RELEASING --------> NONE and call release
-  ACQUIRING --------> ERROR
-        
           acquire
   NONE -------------> ACQUIRING ------------> LOCKED
   FREE -------------> LOCKED
-  LOCKED -----------> pthread_wait_cond(&wait_cond) ------------> LOCKED
-  RELEASING --------> wait release_cond and NONE state ---------> loop
-  ACQUIRING --------> pthread_wait_cond(&wait_cond) ------------> LOCKED
+  LOCKED -----------> wait wait_cond ------------> loop
+  ACQUIRING --------> wait wait_cond ------------> loop
+  RELEASING --------> wait release_cond ---------> loop
+            
+          release
+  if revoke > 0:
+      release to server, LOCKED -> NONE, signal wait_cond and release_cond
+  else:
+      NONE -------------> ERROR
+      FREE -------------> ERROR
+      LOCKED -----------> FREE and signal wait_cond
+      RELEASING --------> release to server, to NONE, signal wait_cond and release_cond
+      ACQUIRING --------> ERROR
+
+            revoke
+  LOCKED -----------> RELEASING
+  FREE   -----------> RELEASING ------------> release to server, to NONE, signal wait_cond and release_cond 
+  NONE   -----------> revoke++
+  RELEASING --------> revoke++
+  ACQUIRING --------> revoke++
+        
 */
 
 lock_protocol::status
@@ -242,6 +246,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
                 break;
 
             default:
+                ERR("state non %d ", it->second.state);
                 break;
         }
     }       // scoped lock end
@@ -253,8 +258,13 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
         if (ret != lock_protocol::OK) {
             ERR("release failed");
         };
-        it->second.state = ClientCacheLock::NONE;
-        Z("%s, lock %llx -> NONE", id.c_str(), lid);
+        {
+            ScopedLock _(&mutex);
+            it->second.state = ClientCacheLock::NONE;
+            pthread_cond_broadcast(&it->second.wait_cond);  // must signal wait_cond, or those threads waiting for wait_cond won't be signaled it no more threads come
+            pthread_cond_broadcast(&it->second.release_cond);
+            Z("%s, lock %llx -> NONE", id.c_str(), lid);
+        }
     }
     return lock_protocol::OK;
 }
@@ -268,9 +278,12 @@ lock_client_cache::retry_handler(lock_protocol::lockid_t lid,
     if (it == locks.end()) {
         ERR("retry an empty lock");
     } else {
-        Z("%s signal retry_cond for lock %llx", id.c_str(), lid);
-        pthread_cond_signal(&it->second.retry_cond);
-        it->second.retry = 1;
+        {
+            ScopedLock _(&mutex);   // must lock, or retry may be reassigned outside after signal
+            Z("%s signal retry_cond for lock %llx", id.c_str(), lid);
+            pthread_cond_signal(&it->second.retry_cond);
+            it->second.retry = 1;
+        }
     }
     return lock_protocol::OK;
 }
