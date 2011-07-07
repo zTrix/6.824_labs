@@ -66,14 +66,13 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
                     it->second.queue.erase(id);
                     if (it->second.queue.size()) {
                         it->second.state = CacheLock::LOCKED_AND_WAIT;
-                        // TODO: add revoke here
                         need_revoke = true;
                         holder_id = id;
                     } else {
                         it->second.state = CacheLock::LOCKED;
                     }
                     ret = lock_protocol::OK;
-                    Z("%s got ORDERED lock %llx", id.c_str(), lid);
+                    Z("%s got ORDERED lock %llx, need_revoke = %d", id.c_str(), lid, need_revoke);
                 } else {
                     it->second.queue.insert(id);
                     ret = lock_protocol::RETRY;
