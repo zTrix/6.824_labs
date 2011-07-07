@@ -58,59 +58,89 @@ lock_client_cache::lock_client_cache(std::string xdst,
 lock_protocol::status
 lock_client_cache::acquire(lock_protocol::lockid_t lid)
 {
-    ScopedLock _(&mutex);
     map<lock_protocol::lockid_t, ClientCacheLock>::iterator it;
-    bool loop = false;
-    if (!locks.count(lid)) {        // if not exist
-       ClientCacheLock &ccl = locks[lid];
-       ccl.state = ClientCacheLock::NONE;
-       pthread_cond_init(&ccl.wait_cond, NULL);
-       pthread_cond_init(&ccl.retry_cond, NULL);
-       ccl.owner = -1;
-       ccl.revoke = 0;
-    };
-    it = locks.find(lid);
-    do {
-        switch(it->second.state) {
-            case ClientCacheLock::NONE:
-                it->second.state = ClientCacheLock::ACQUIRING;
-                int ret, r;
-                while (true) {
-                    ret = cl->call(lock_protocol::acquire, lid, id, r);
-                    if (ret == lock_protocol::OK) {
-                        break;
+    bool loop = false, acquire_flag = false;
+    {
+        ScopedLock _(&mutex);
+        if (!locks.count(lid)) {        // if not exist
+           ClientCacheLock &ccl = locks[lid];
+           ccl.state = ClientCacheLock::NONE;
+           pthread_cond_init(&ccl.wait_cond, NULL);
+           pthread_cond_init(&ccl.retry_cond, NULL);
+           pthread_cond_init(&ccl.release_cond, NULL);
+           ccl.owner = -1;
+           ccl.revoke = 0;
+           ccl.retry = 0;
+        };
+        it = locks.find(lid);
+        do {
+            switch(it->second.state) {
+                case ClientCacheLock::NONE:
+                    Z("%s acqurire lock %llx from NONE state", id.c_str(), lid);
+                    it->second.state = ClientCacheLock::ACQUIRING;
+                    Z("%s lock %llx state -> ACQUIRING", id.c_str(), lid);
+                    acquire_flag = true;
+                    loop = false;
+                    break;
+
+                case ClientCacheLock::FREE:
+                    loop = false;
+                    Z("%s got lock %llx from NONE state", id.c_str(), lid);
+                    break;
+
+                case ClientCacheLock::ACQUIRING:
+                    while (it->second.state != ClientCacheLock::FREE) {
+                        pthread_cond_wait(&it->second.wait_cond, &mutex);
+                    };
+                    loop = false;
+                    Z("%s got lock %llx from ACQURING state", id.c_str(), lid);
+                    break;
+
+                case ClientCacheLock::LOCKED:
+                    while (it->second.state != ClientCacheLock::FREE) {
+                        pthread_cond_wait(&it->second.wait_cond, &mutex);
+                    };
+                    loop = false;
+                    Z("%s got lock %llx from LOCKED state", id.c_str(), lid);
+                    break;
+
+                case ClientCacheLock::RELEASING:
+                    Z("%s wait for release_cond, lid = %llx", id.c_str(), lid);
+                    while (it->second.state == ClientCacheLock::RELEASING) {
+                        pthread_cond_wait(&it->second.release_cond, &mutex);
                     }
-                    pthread_cond_wait(&it->second.retry_cond, &mutex);
-                }
-                loop = false;
-                break;
+                    loop = true;
+                    break;
 
-            case ClientCacheLock::FREE:
-                loop = false;
+                default:
+                    loop = false;
+                    break;
+            }
+        } while (loop);
+    }       // scoped lock end
+    // TODO : it->second.revoke not used yet
+    if (acquire_flag) {
+        int ret, r;
+        while (true) {
+            Z("%s calling acquire RPC for lock %llx", id.c_str(), lid);
+            ret = cl->call(lock_protocol::acquire, lid, id, r);
+            Z("%s acquire RPC for lock %llx, ret is %s", id.c_str(), lid, ret == lock_protocol::OK ? "OK":"RETRY");
+            if (ret == lock_protocol::OK) {
                 break;
-
-            case ClientCacheLock::ACQUIRING:
-            case ClientCacheLock::LOCKED:
-                while (it->second.state != ClientCacheLock::FREE) {
-                    pthread_cond_wait(&it->second.wait_cond, &mutex);
-                };
-                it->second.state = ClientCacheLock::LOCKED;
-                it->second.owner = pthread_self();
-                loop = false;
-                break;
-
-            case ClientCacheLock::RELEASING:
-                while (it->second.state == ClientCacheLock::RELEASING) {
-                    pthread_cond_wait(&it->second.release_cond, &mutex);
-                }
-                loop = true;
-                break;
-
-            default:
-                loop = false;
-                break;
+            }
+            if (it->second.retry) {
+                it->second.retry = 0;
+            } else {
+                Z("%s wait for retry_cond of lock %llx", id.c_str(), lid);
+                ScopedLock __(&mutex);
+                pthread_cond_wait(&it->second.retry_cond, &mutex);
+                it->second.retry = 0;
+            }
         }
-    } while (loop);
+        Z("%s got lock %llx from NONE state", id.c_str(), lid);
+    }
+    it->second.state = ClientCacheLock::LOCKED;
+    it->second.owner = pthread_self();
     return lock_protocol::OK;
 }
 
@@ -137,6 +167,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
 
             case ClientCacheLock::LOCKED:
                 it->second.state = ClientCacheLock::FREE;
+                Z("%s, lid = %llx, lock state -> FREE, about to signal wait_cond", id.c_str(), lid);
                 pthread_cond_signal(&it->second.wait_cond);
                 break;
 
@@ -153,12 +184,14 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
         }
     }       // scoped lock end
     if (release_flag) {
+        Z("%s, lid = %llx, releasing lock to server", id.c_str(), lid);
         int r;
         int ret = cl->call(lock_protocol::release, lid, id, r);
         if (ret != lock_protocol::OK) {
             ERR("release failed");
         };
         it->second.state = ClientCacheLock::NONE;
+        Z("%s, lid = %llx, state -> NONE, about to broadcast release_cond", id.c_str(), lid);
     }
     pthread_cond_broadcast(&it->second.release_cond);
     return lock_protocol::OK;
@@ -218,13 +251,14 @@ rlock_protocol::status
 lock_client_cache::retry_handler(lock_protocol::lockid_t lid, 
                                  int &)
 {
-    ScopedLock _(&mutex);       // make sure acquire enters wait
     map<lock_protocol::lockid_t, ClientCacheLock>::iterator it;
     it = locks.find(lid);
     if (it == locks.end()) {
         ERR("retry an empty lock");
     } else {
+        Z("%s signal retry_cond for lock %llx", id.c_str(), lid);
         pthread_cond_signal(&it->second.retry_cond);
+        it->second.retry = 1;
     }
     return lock_protocol::OK;
 }

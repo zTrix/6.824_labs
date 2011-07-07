@@ -5,6 +5,7 @@
 
 
 #include <map>
+#include <set>
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_server.h"
@@ -22,7 +23,7 @@ struct CacheLock {
     };
     std::string client;
     State state;
-    std::list<std::string> queue;
+    std::set<std::string> queue;
 };
 
 class lock_server_cache {

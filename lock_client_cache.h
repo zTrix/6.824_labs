@@ -24,6 +24,7 @@ struct ClientCacheLock {
     pthread_cond_t release_cond;
     pthread_t owner;
     int revoke;     // revoke num before acquire returned OK
+    int retry;
 };
 
 // Classes that inherit lock_release_user can override dorelease so that 

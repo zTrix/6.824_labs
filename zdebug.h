@@ -4,7 +4,7 @@
 #define DEBUG
 
 #ifdef DEBUG
-    #define Z(args...) printf(" [ ZZ ] "args)
+    #define Z(args...) printf(" [ ZZ ] "args);printf("\n")
     #define ERR(args...) printf(" [ EE ] %s: %s: %d >>> ", __FILE__, __FUNCTION__, __LINE__);printf(args);printf("\n")
 #else
     #define Z(args...)
