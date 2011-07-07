@@ -91,25 +91,12 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
                     break;
 
                 case ClientCacheLock::ACQUIRING:
-                    while (it->second.state != ClientCacheLock::FREE) {
-                        pthread_cond_wait(&it->second.wait_cond, &mutex);
-                    };
-                    it->second.state = ClientCacheLock::LOCKED;
-                    Z("%s lock %llx FREE -> LOCKED", id.c_str(), lid);
-                    it->second.owner = pthread_self();
-                    loop = false;
-                    Z("%s::%lu got lock %llx from ACQUIRING state", id.c_str(), pthread_self(), lid);
-                    break;
-
                 case ClientCacheLock::LOCKED:
-                    while (it->second.state != ClientCacheLock::FREE) {
+                    while (it->second.state == ClientCacheLock::ACQUIRING ||
+                           it->second.state == ClientCacheLock::LOCKED) {
                         pthread_cond_wait(&it->second.wait_cond, &mutex);
                     };
-                    loop = false;
-                    it->second.state = ClientCacheLock::LOCKED;
-                    Z("%s lock %llx LOCKED -> LOCKED", id.c_str(), lid);
-                    it->second.owner = pthread_self();
-                    Z("%s got lock %llx from LOCKED state", id.c_str(), lid);
+                    loop = true;
                     break;
 
                 case ClientCacheLock::RELEASING:
@@ -126,7 +113,6 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
             }
         } while (loop);
     }       // scoped lock end
-    // TODO : it->second.revoke not used yet
     if (acquire_flag) {
         int ret, r;
         while (true) {
@@ -206,6 +192,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
         {
             ScopedLock _(&mutex);
             it->second.state = ClientCacheLock::NONE;
+            pthread_cond_broadcast(&it->second.wait_cond);
             pthread_cond_broadcast(&it->second.release_cond);
             Z("%s, lock %llx, state -> NONE, about to broadcast release_cond", id.c_str(), lid);
         }
