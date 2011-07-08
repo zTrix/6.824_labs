@@ -1,0 +1,54 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{CJK}
+\usepackage{indentfirst}
+
+\begin{document}
+\begin{CJK}{UTF8}{gbsn}
+
+\title{lab1 实验报告}
+\author{计83{ }朱文雷{ }2008011369}
+\maketitle
+
+\section{代码修改说明}
+\begin{itemize}
+\item 增加了文件 lock.h，其中定义了 Lock 结构体，包含 client 和 cond (类型为 pthread\_cond\_t) 两个成员。
+\item 修改了 lock\_smain.cc 增加了 acquire 和 release 的函数注册。
+\item lock\_server.h 增加了 acquire 和 release 的定义。增加了成员 server\_mutex，增加了 locks 成员，用来存储锁。
+\item lock\_server.cc 构造函数增加了 server\_mutex 的初始化。增加了 acquire 和 release 函数。
+\item lock\_client.cc 增加了 acquire 和 release 函数的实现。
+\item 增加了 zdebug.h 用来调试输出。
+\item 修改了 rpc/rpc.cc 文件的 checkduplicate\_and\_update 函数和 add\_reply 函数，实现了所有求的功能。
+\end{itemize}
+
+\section{程序思路说明}
+\subsection{lock\_client}
+lock\_client 的实现非常简单，直接调用 rpcc 的 call 函数即可，并传入正确的参数。
+
+\subsection{lock\_server}
+\subsubsection{acquire逻辑}
+首先用一个 ScopedLock 把整个函数锁住。然后在 locks 中搜索 lid 这个 key，如果没有的话，说明这个锁不存在，那么直接为其分配一个锁即可。如果存在的话，就去检查这个锁对应的 client，如果 client 为正，说明锁被某一个 client 所占用，那么就一直去 wait 这个锁的 cond ，直到被 broadcast 唤醒，并发现 client 为 -1的时候，就可以获得这个锁了，把锁的 client 赋值为当前 client，然后返回。
+
+\subsubsection{release 逻辑}
+首先用一个 ScopedLock 把整个函数锁住。然后在 locks 中找这个锁，找到之后将其 client 置为 -1，并 broadcast 这个锁的 cond，然后返回即可。
+
+\subsection{at most once 的实现}
+\subsubsection{checkduplicate\_and\_update 函数}
+首先根据 clt\_nonce 找到这个 client 对应的 window 链表。
+
+然后进行 window forward 操作。在 window 不为空的情况下，对 window 链表从头开始遍历，如果当前元素的 xid 值小于等于 xid\_rep ，则删除它的 buf。当循环结束后，使用 erase 函数，把这些元素都删除。
+
+如果 window 不为空，那么下面首先看 window 的第一个元素的 xid 是不是大于 这次请求的 xid ，如果是的话，则返回 FORGOTTEN。
+
+如果 xid 的值小于 window 的末尾元素的 xid 的话，则对链表进行遍历，找到后检查其 cb\_present 值，如果为 true 则返回 INPROGRESS, 否则的话，将 b 和 sz 赋值后返回 DONE
+。
+
+如果上面这么多检查仍然没有 return 的话，说明肯定是一个新的请求。首先构造 reply\_t 元素。然后遍历链表，找到他应该待的位置后插入链表，最后返回 NEW 即可。
+
+\subsubsection{add\_reply 逻辑}
+首先找到当前 clt\_nonce 对应的 链表。
+然后对链表进行遍历，找到对应元素后，将 buf 和 sz 赋上传进来的值，并将 cb\_present 标记为 false。然后返回即可。
+
+\end{CJK}
+\end{document}
