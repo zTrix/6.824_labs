@@ -11,6 +11,9 @@
 #include "lock.h"
 #include "zdebug.h"
 
+// finished lab4
+// but acquire number only reduced to about 1/4 compared to lab3 ( test-lab-3-c 200/800 )
+
 lock_server_cache::lock_server_cache()
 {
     pthread_mutex_init(&server_mutex, NULL);
