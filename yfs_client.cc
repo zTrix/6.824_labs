@@ -71,6 +71,7 @@ yfs_client::getfile(inum inum, fileinfo &fin)
   ScopedLockClient _(lc, inum);
   if (ec->getattr(inum, a) != extent_protocol::OK) {
     r = IOERR;
+    ERR("getattr error");
     goto release;
   }
 
@@ -78,7 +79,7 @@ yfs_client::getfile(inum inum, fileinfo &fin)
   fin.mtime = a.mtime;
   fin.ctime = a.ctime;
   fin.size = a.size;
-  printf("getfile %016llx -> sz %llu\n", inum, fin.size);
+  printf("getfile %llx -> sz %llu\n", inum, fin.size);
 
  release:
 
@@ -178,10 +179,12 @@ bool yfs_client::lookup(inum parent, const char *name, unsigned long &ino) {
 }
 
 int yfs_client::read(inum ino, size_t size, off_t off, std::string &ret) {
+    Z("read: size = %lu, off = %ld", size, off);
     std::string buf;
     ScopedLockClient _(lc, ino);
     int rs = ec->get(ino, buf);
     if (rs != OK) {
+        ERR("extent client get rs not OK: %d", rs);
         return rs;
     }
     if (off + size > buf.size()) {
@@ -192,6 +195,7 @@ int yfs_client::read(inum ino, size_t size, off_t off, std::string &ret) {
     } else {
         ret = buf.substr(off, size);
     }
+    //Z("read result = %s", ret.c_str());
     return OK;
 }
 

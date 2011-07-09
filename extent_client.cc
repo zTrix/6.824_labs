@@ -73,6 +73,11 @@ extent_client::getattr(extent_protocol::extentid_t eid,
             if (!a->atime) {
                 a->atime = temp.atime;
             }
+            if (cache[eid].dirty) {
+                a->size = cache[eid].a.size;
+            } else {
+                a->size = temp.size;
+            }
             attr = *a;
         } else {
             ERR("call getattr failed");
