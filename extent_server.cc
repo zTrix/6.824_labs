@@ -10,8 +10,16 @@
 #include "zdebug.h"
 
 /*
+    6001:put
+    6002:get
+    6003:getattr
+    6004:remove
+
  RPC number before writing lab5 code
     RPC STATS: 1:2 6001:802 6002:1451 6003:801 6004:198 
+
+ stat after lab5 finished:
+    RPC STATS: 1:2 6001:3 6002:277 6003:2 
 
 */
 
