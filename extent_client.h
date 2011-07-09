@@ -8,8 +8,13 @@
 #include "rpc.h"
 
 class extent_client {
+    struct Extent {
+        std::string data;
+        extent_protocol::attr attribute;
+    };
  private:
   rpcc *cl;
+  std::map<extent_protocol::extentid_t, Extent> cache;
 
  public:
   extent_client(std::string dst);

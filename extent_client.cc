@@ -22,36 +22,70 @@ extent_client::extent_client(std::string dst)
 extent_protocol::status
 extent_client::get(extent_protocol::extentid_t eid, std::string &buf)
 {
-  extent_protocol::status ret = extent_protocol::OK;
-  ret = cl->call(extent_protocol::get, eid, buf);
-  return ret;
+    extent_protocol::status ret = extent_protocol::OK;
+    std::map<extent_protocol::extentid_t, Extent>::iterator it;
+    it = cache.find(eid);
+    if (it == cache.end()) {
+        ret = cl->call(extent_protocol::get, eid, buf);
+        cache[eid].data = buf;
+    } else {
+        buf = cache[eid].data;
+    }
+    cache[eid].attribute.atime = time(NULL);
+    return ret;
 }
 
 extent_protocol::status
 extent_client::getattr(extent_protocol::extentid_t eid, 
 		       extent_protocol::attr &attr)
 {
-  extent_protocol::status ret = extent_protocol::OK;
-  ret = cl->call(extent_protocol::getattr, eid, attr);
-  return ret;
+    extent_protocol::status ret = extent_protocol::OK;
+    if (!cache.count(eid)) {
+        return extent_protocol::NOENT;
+    }
+    attr = cache[eid].attribute;
+    return ret;
+
+    ret = cl->call(extent_protocol::getattr, eid, attr);
+    return ret;
 }
 
 extent_protocol::status
 extent_client::put(extent_protocol::extentid_t eid, std::string buf)
 {
-  extent_protocol::status ret = extent_protocol::OK;
-  int r;
-  ret = cl->call(extent_protocol::put, eid, buf, r);
-  return ret;
+    extent_protocol::status ret = extent_protocol::OK;
+
+    extent_protocol::attr a;
+    a.mtime = a.ctime = a.atime = time(NULL);
+    a.size = buf.size();
+    if (cache.count(eid)) {
+        a.atime = cache[eid].attribute.atime;
+    }
+    cache[eid].data = buf;
+    cache[eid].attribute = a;
+    return ret;
+
+    int r;
+    ret = cl->call(extent_protocol::put, eid, buf, r);
+    return ret;
 }
 
 extent_protocol::status
 extent_client::remove(extent_protocol::extentid_t eid)
 {
-  extent_protocol::status ret = extent_protocol::OK;
-  int r;
-  ret = cl->call(extent_protocol::remove, eid, r);
-  return ret;
+    extent_protocol::status ret = extent_protocol::OK;
+    int r;
+  
+    std::map<extent_protocol::extentid_t, Extent>::iterator it;
+    it = cache.find(eid);
+    if (it == cache.end()) {
+        return extent_protocol::NOENT;
+    }
+    cache.erase(it);
+    return ret;
+  
+    ret = cl->call(extent_protocol::remove, eid, r);
+    return ret;
 }
 
 

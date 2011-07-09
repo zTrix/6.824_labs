@@ -9,6 +9,12 @@
 #include <fcntl.h>
 #include "zdebug.h"
 
+/*
+ RPC number before writing lab5 code
+    RPC STATS: 1:2 6001:802 6002:1451 6003:801 6004:198 
+
+*/
+
 extent_server::extent_server() {
     int r;
     put(1, "", r);
