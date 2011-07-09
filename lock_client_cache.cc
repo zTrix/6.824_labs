@@ -60,6 +60,8 @@ lock_client_cache::lock_client_cache(std::string xdst,
 note:
 1. we must use the lock at least once when received revoke before using the lock, or we will encounter deadlock in such situation:
     a lot of clients wants to get the lock, and as soon as a client get the lock, another client send him a revoke before he could use, thus nobody could finish the task
+
+2. If a client closed connection and failed to release the lock, then nobody else could get the lock because revoke won't get the lock back.
         
 */
 
