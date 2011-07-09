@@ -10,6 +10,22 @@
 #include "lock_client.h"
 #include "lang/verify.h"
 
+struct ClientCacheLock {
+    enum State {
+        NONE,
+        FREE,
+        LOCKED,
+        ACQUIRING,  // some thread is acquring the lock
+        RELEASING   // the lock is here, and we are releasing it
+    };
+    State state;
+    pthread_cond_t wait_cond;
+    pthread_cond_t retry_cond;
+    pthread_cond_t release_cond;
+    pthread_t owner;
+    int revoke;     // revoke num before acquire returned OK
+    int retry;
+};
 
 // Classes that inherit lock_release_user can override dorelease so that 
 // that they will be called when lock_client releases a lock.
@@ -26,6 +42,8 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
+  std::map<lock_protocol::lockid_t, ClientCacheLock> locks;
+  pthread_mutex_t mutex;
  public:
   static int last_port;
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);

@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 #include "lang/verify.h"
 #include "yfs_client.h"
+#include "zdebug.h"
 
 int myid;
 yfs_client *yfs;
@@ -81,17 +82,16 @@ fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
 void
 fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set, struct fuse_file_info *fi)
 {
-  printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
-    printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
     struct stat st;
     // You fill this in for Lab 2
-#if 0
-    // Note: fill st using getattr before fuse_reply_attr
-    fuse_reply_attr(req, &st, 0);
-#else
-    fuse_reply_err(req, ENOSYS);
-#endif
+    int rs = yfs->setattr(ino, attr);
+    getattr(ino, st);
+    if (rs == yfs_client::OK) {
+        fuse_reply_attr(req, &st, 0);
+    } else {
+        fuse_reply_err(req, ENOSYS);
+    }
   } else {
     fuse_reply_err(req, ENOSYS);
   }
@@ -102,11 +102,13 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
       off_t off, struct fuse_file_info *fi)
 {
   // You fill this in for Lab 2
-#if 0
-  fuse_reply_buf(req, buf, size);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+    std::string buf;
+    int rs = yfs->read(ino, size, off, buf);
+    if (rs == yfs_client::OK) {
+        fuse_reply_buf(req, buf.c_str(), buf.size());
+    } else {
+        fuse_reply_err(req, ENOSYS);
+    }
 }
 
 void
@@ -115,11 +117,12 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   struct fuse_file_info *fi)
 {
   // You fill this in for Lab 2
-#if 0
-  fuse_reply_write(req, bytes_written);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+  int rs = yfs->write(ino, buf, size, off);
+  if (rs == yfs_client::OK) {
+      fuse_reply_write(req, size);
+  } else {
+      fuse_reply_err(req, ENOSYS);
+  }
 }
 
 yfs_client::status
@@ -131,7 +134,10 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   e->entry_timeout = 0.0;
   e->generation = 0;
   // You fill this in for Lab 2
-  return yfs_client::NOENT;
+  int rs = yfs->create(parent, name, true, e->ino);
+  if (rs != yfs_client::OK) return rs;
+  rs = getattr(e->ino, e->attr);
+  return rs;
 }
 
 void
@@ -180,11 +186,14 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // Look up the file named `name' in the directory referred to by
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
+  found = yfs->lookup(parent, name, e.ino);
 
-  if (found)
+  if (found) {
+    getattr(e.ino, e.attr);
     fuse_reply_entry(req, &e);
-  else
+  } else {
     fuse_reply_err(req, ENOENT);
+  }
 }
 
 
@@ -235,7 +244,24 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
   // You fill this in for Lab 2
   // Ask the yfs_client for the file names / i-numbers
   // in directory inum, and call dirbuf_add() for each.
-
+  std::string buf;
+  if (yfs->getdata(inum, buf) != extent_protocol::OK) {
+    Z("fuseserver_readdir: get buf not ok\n");
+    fuse_reply_err(req, ENOTDIR);
+  } else {
+    size_t left = 0, mid = 0, end = 0;
+    while (true) {
+      mid = buf.find_first_of('/', left);
+      end = buf.find_first_of('/', mid + 1);
+      if (mid == std::string::npos || end == std::string::npos) {
+        break;
+      }
+      yfs_client::inum fno = yfs->n2i(buf.substr(left, mid - left));
+      std::string name = buf.substr(mid + 1, end - mid - 1);
+      dirbuf_add(&b, name.c_str(), fno);
+      left = mid = end = end + 1;
+    }
+  }
 
   reply_buf_limited(req, b.p, b.size, off, size);
   free(b.p);
@@ -260,11 +286,13 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
   e.generation = 0;
 
   // You fill this in for Lab 3
-#if 0
-  fuse_reply_entry(req, &e);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+  int rs = yfs->create(parent, name, false, e.ino);
+  if (rs == yfs_client::OK) {
+      rs = getattr(e.ino, e.attr);
+      fuse_reply_entry(req, &e);
+  } else {
+      fuse_reply_err(req, ENOSYS);
+  }
 }
 
 void
@@ -274,7 +302,11 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
   // You fill this in for Lab 3
   // Success:	fuse_reply_err(req, 0);
   // Not found:	fuse_reply_err(req, ENOENT);
-  fuse_reply_err(req, ENOSYS);
+  if (yfs->unlink(parent, name) == yfs_client::OK) {
+    fuse_reply_err(req, 0);
+  } else {
+    fuse_reply_err(req, ENOSYS);
+  }
 }
 
 void
