@@ -17,6 +17,7 @@
 
 extent_server::extent_server() {
     int r;
+    pthread_mutex_init(&mutex, NULL);
     put(1, "", r);
 }
 
@@ -24,7 +25,8 @@ extent_server::extent_server() {
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
   // You fill this in for Lab 2.
-  Z("extent_server put : %llx %s\n", id, buf.c_str());
+  Z("extent_server put : %llx %s", id, buf.c_str());
+  ScopedLock _(&mutex);
   extent_protocol::attr a;
   a.mtime = a.ctime = a.atime = time(NULL);
   a.size = buf.length();
@@ -38,9 +40,11 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 
 int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 {
-  Z("extent_server get : %llx\n", id);
+  Z("extent_server get : %llx", id);
+  ScopedLock _(&mutex);
   // You fill this in for Lab 2.
   if (exts.find(id) == exts.end()) {
+    ERR("NOENT found %llx", id);
     return extent_protocol::NOENT;
   }
   buf = exts[id].name;
@@ -51,8 +55,10 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr &a)
 {
   // You fill this in for Lab 2.
-  Z("extent_server getattr : %llx \n", id);
+  ScopedLock _(&mutex);
+  Z("extent_server getattr : %llx", id);
   if (exts.find(id) == exts.end()) {
+      ERR("NOENT found %llx", id);
       return extent_protocol::NOENT;
   }
   a = exts[id].attribute;
@@ -62,7 +68,8 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
 int extent_server::remove(extent_protocol::extentid_t id, int &)
 {
   // You fill this in for Lab 2.
-  Z("extent_server remove : %llx \n", id);
+  Z("extent_server remove : %llx", id);
+  ScopedLock _(&mutex);
   std::map<extent_protocol::extentid_t, Extent>::iterator it;
   it = exts.find(id);
   if (it == exts.end()) {

@@ -1,7 +1,7 @@
 #ifndef __ZDEBUG_H__
 #define __ZDEBUG_H__
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
     #define Z(args...) printf(" [ ZZ ] %s:%d >>> ",__FUNCTION__,__LINE__);printf(args);printf("\n")

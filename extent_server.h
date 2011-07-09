@@ -6,6 +6,7 @@
 #include <string>
 #include <map>
 #include "extent_protocol.h"
+#include "pthread.h"
 
 class extent_server {
     struct Extent {
@@ -14,6 +15,7 @@ class extent_server {
     };
 private:
     std::map<extent_protocol::extentid_t, Extent> exts;
+    pthread_mutex_t mutex;
  public:
   extent_server();
 

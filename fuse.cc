@@ -245,7 +245,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
   // Ask the yfs_client for the file names / i-numbers
   // in directory inum, and call dirbuf_add() for each.
   std::string buf;
-  if (yfs->get(inum, buf) != extent_protocol::OK) {
+  if (yfs->getdata(inum, buf) != extent_protocol::OK) {
     Z("fuseserver_readdir: get buf not ok\n");
     fuse_reply_err(req, ENOTDIR);
   } else {

@@ -193,6 +193,12 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
         }
     }       // scoped lock end
     if (release_flag) {
+        if (lu) {
+            Z("do release");
+            lu->dorelease(lid);
+        } else {
+            ERR("lu is null");
+        }
         Z("%s, lock %llx, releasing lock to server", id.c_str(), lid);
         int r;
         int ret = cl->call(lock_protocol::release, lid, id, r);
@@ -257,6 +263,12 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
         }
     }       // scoped lock end
     if (release_flag) {
+        if (lu) {
+            Z("do release");
+            lu->dorelease(lid);
+        } else {
+            ERR("lu is null");
+        }
         int r;
         Z("%s, calling RPC release for lock %llx", id.c_str(), lid);
         int ret = cl->call(lock_protocol::release, lid, id, r);

@@ -9,8 +9,22 @@
 
 #include "lock_protocol.h"
 #include "lock_client.h"
+#include "lock_client_cache.h"
+#include "zdebug.h"
+
+class ExtentLockRelease : public lock_release_user {
+    extent_client *ec;
+public:
+    ExtentLockRelease(extent_client * e) : ec(e) {}
+    void dorelease(lock_protocol::lockid_t lid) {
+        int ret = ec->flush(lid);
+        Z("flush, rs = %d", ret);
+    }
+};
 
 class yfs_client {
+
+  ExtentLockRelease * elr;
   extent_client *ec;
   lock_client   *lc;
  public:
@@ -47,8 +61,6 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
-  int get(inum, std::string &);
-  int put(inum, std::string);
   inum rand_inum(bool isfile = true);
   int create(inum parent, const char * name, bool isfile, unsigned long &);
   bool lookup(inum parent, const char * name, unsigned long &);
@@ -56,8 +68,7 @@ class yfs_client {
   int write(inum ino, const char *buf, size_t size, off_t off);
   int setattr(inum ino, struct stat * attr);
   int unlink(inum parent, const char *name);
-  void lock(inum);
-  void unlock(inum);
+  int getdata(inum ino, std::string & buf);
 };
 
 class ScopedLockClient {
