@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include "tprintf.h"
 #include "lang/verify.h"
+#include "zdebug.h"
+
+using namespace std;
 
 // This module implements the proposer and acceptor of the Paxos
 // distributed algorithm as described by Lamport's "Paxos Made
@@ -153,7 +156,41 @@ proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
   // You fill this in for Lab 6
   // Note: if got an "oldinstance" reply, commit the instance using
   // acc->commit(...), and return false.
-  return false;
+    vector<string>::iterator it;
+    uint32_t v_n = 0;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        handle h(*it);
+        rpcc * cl = h.safebind();
+        if (cl) {
+            paxos_protocol::preparearg a;
+            a.instance = instance;
+            a.n = my_n;
+            paxos_protocol::prepareres ret;
+            int r = cl->call(paxos_protocol::preparereq, me, a, ret, rpcc::to(1000));
+            if (r == paxos_protocol::OK) {
+                if (ret.oldinstance != -1) {
+                    acc->commit(ret.oldinstance, ret.v_a);
+                    return false;
+                } else if (ret.accept == -1) {
+                    while (my_n.n < ret.n_a.n) {
+                        setn();
+                    }
+                    return false;
+                } else {
+                    accepts.push_back(*it);
+                    if (a.n.n > v_n && a.n.m.size()) {
+                        v = a.n.m;
+                        v_n = a.n.n;
+                    }
+                }
+            } else {
+                ERR("timeout");
+            }
+        } else {
+            ERR("cannot bind");
+        }
+    }
+    return true;
 }
 
 // run() calls this to send out accept RPCs to accepts.
@@ -163,6 +200,29 @@ proposer::accept(unsigned instance, std::vector<std::string> &accepts,
         std::vector<std::string> nodes, std::string v)
 {
   // You fill this in for Lab 6
+    vector<string>::iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        handle h(*it);
+        rpcc * cl = h.safebind();
+        if (cl) {
+            paxos_protocol::acceptarg a;
+            a.instance = instance;
+            a.n = my_n;
+            int ret;
+            int r = cl->call(paxos_protocol::acceptreq, me, a, ret, rpcc::to(1000));
+            if (paxos_protocol::OK == r) {
+                if (-1 == ret) {
+                    // rejected
+                } else {
+                    accepts.push_back(*it);
+                }
+            } else {
+                ERR("acceptreq timeout");
+            }
+        } else {
+            ERR("safebind failed");
+        }
+    }
 }
 
 void
@@ -170,6 +230,21 @@ proposer::decide(unsigned instance, std::vector<std::string> accepts,
 	      std::string v)
 {
   // You fill this in for Lab 6
+  stable = true;
+  vector<string>::iterator it;
+  for (it = accepts.begin(); it != accepts.end(); ++it) {
+    handle h(*it);
+    rpcc * cl = h.safebind();
+    if (cl) {
+        paxos_protocol::decidearg a;
+        a.instance = instance;
+        a.v = v;
+        int r;
+        int ret = cl->call(paxos_protocol::decidereq, me, a, r, rpcc::to(1000));
+    } else {
+        ERR("safebind fail");
+    }
+  }
 }
 
 acceptor::acceptor(class paxos_change *_cfg, bool _first, std::string _me, 
@@ -203,16 +278,39 @@ acceptor::preparereq(std::string src, paxos_protocol::preparearg a,
     paxos_protocol::prepareres &r)
 {
   // You fill this in for Lab 6
-  return paxos_protocol::OK;
+    if (a.instance <= instance_h) {
+        r.oldinstance = instance_h;
+        r.accept = -1;
+        r.n_a = n_a;
+        r.v_a = value(a.instance);
+    } else if (a.n.n > n_h.n) {
+        n_h = a.n;
 
+        r.oldinstance = -1;
+        r.accept = 1;
+        r.n_a = n_a;
+        r.v_a = v_a;
+    } else {
+        r.oldinstance = -1;
+        r.accept = -1;
+        r.n_a = n_h;
+        r.v_a = v_a;
+    }
+    return paxos_protocol::OK;
 }
 
 paxos_protocol::status
 acceptor::acceptreq(std::string src, paxos_protocol::acceptarg a, bool &r)
 {
   // You fill this in for Lab 6
-
-  return paxos_protocol::OK;
+    r = 0;
+    if (a.instance > instance_h && a.n.n >= n_h.n) {
+        r = 1;
+        n_a = a.n;
+        v_a = a.v;
+        l->logprop(a.n);
+    }
+    return paxos_protocol::OK;
 }
 
 paxos_protocol::status
